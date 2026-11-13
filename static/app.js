@@ -94,8 +94,17 @@ function openCategory(categoryId) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "library-exercise";
-    const detail = exercise.muscles?.length ? exercise.muscles.map((muscle) => targetLabels[muscle]).filter(Boolean).join(", ") : currentCategory.name.toLowerCase();
-    button.innerHTML = `<span><strong>${escapeHtml(exercise.name)}</strong><small>${exercise.custom ? "Личное упражнение" : `Основная нагрузка: ${escapeHtml(detail)}`}</small></span><b>›</b>`;
+    const muscles = exercise.custom ? musclesForCategory(currentCategory.id) : (exercise.muscles || []);
+    const detail = muscles.map((muscle) => targetLabels[muscle]).filter(Boolean).join(", ") || currentCategory.name.toLowerCase();
+    const visual = document.createElement("span");
+    visual.className = "library-exercise-visual";
+    visual.append(makeMuscleFigure(muscles));
+    const copy = document.createElement("span");
+    copy.className = "library-exercise-copy";
+    copy.innerHTML = `<strong>${escapeHtml(exercise.name)}</strong><small>${exercise.custom ? "Личное упражнение" : `Работают: ${escapeHtml(detail)}`}</small>`;
+    const arrow = document.createElement("b");
+    arrow.textContent = "›";
+    button.append(visual, copy, arrow);
     button.addEventListener("click", () => selectLibraryExercise(exercise));
     list.append(button);
   }
@@ -311,7 +320,7 @@ function updateWorkoutAnatomy(card) {
   card.querySelector(".anatomy-title").textContent = exercise?.name || "Выбери упражнение";
   const targets = muscles.map((muscle) => targetLabels[muscle]).filter(Boolean);
   card.querySelector(".anatomy-hint").textContent = exercise ? `${exercise.custom ? "Личное · " : "Основная нагрузка: "}${targets.join(", ")}` : "Выбери упражнение из списка";
-  card.querySelectorAll("[data-muscle]").forEach((part) => part.classList.toggle("active", muscles.includes(part.dataset.muscle)));
+  card.querySelector(".anatomy .body-map").replaceWith(makeMuscleFigure(muscles));
 }
 
 function renderWorkoutOptions(card, selectedName = "") {

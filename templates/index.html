@@ -6,37 +6,98 @@
   <meta name="theme-color" content="#100d18">
   <title>GymTracker</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=2">
+  <link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body>
   <main class="app">
-    <header><div><p class="eyebrow">ТРЕНИРОВКИ</p><h1>GymTracker</h1></div><span class="mark">G</span></header>
-    <section class="intro"><p class="eyebrow">ТВОЙ ПРОГРЕСС</p><h2>Сильнее с<br>каждой тренировкой.</h2><p class="muted">Записывай подходы и возвращайся к результатам.</p></section>
-    <section class="section-head"><div><h2>История</h2><p class="muted">Твои последние тренировки</p></div><span id="count" class="count">0</span></section>
-    <div id="history" class="history"></div>
-    <button id="open-form" class="primary">＋ &nbsp; Новая тренировка</button>
+    <header class="app-header"><div><p class="eyebrow">ТВОЙ ТРЕНИРОВОЧНЫЙ ДНЕВНИК</p><h1>GymTracker</h1></div><span class="mark">G</span></header>
     <p id="status" class="status" role="status"></p>
+
+    <section class="tab-panel active" id="tab-exercises" data-panel="exercises">
+      <div class="page-heading"><div><p class="eyebrow">БИБЛИОТЕКА</p><h2>Упражнения</h2></div><span class="page-note">Выбери группу мышц</span></div>
+      <div id="category-grid" class="category-grid"></div>
+      <section id="exercise-browser" class="exercise-browser" hidden>
+        <button type="button" id="back-categories" class="text-button">← Все группы</button>
+        <div class="page-heading browser-heading"><div><p class="eyebrow">ГРУППА МЫШЦ</p><h2 id="browser-title"></h2></div></div>
+        <div id="exercise-list" class="exercise-list"></div>
+        <button type="button" id="library-add-custom" class="add-custom-exercise">＋ Добавить своё упражнение в эту группу</button>
+        <div id="library-custom-form" class="custom-exercise-form" hidden><label class="field-label" for="library-custom-name">Название личного упражнения<input id="library-custom-name" maxlength="100" placeholder="Например, жим в тренажёре" autocomplete="off"></label><div class="custom-exercise-actions"><button type="button" id="library-save-custom" class="save-custom-exercise">Добавить</button><button type="button" id="library-cancel-custom" class="cancel-custom-exercise">Отмена</button></div><p id="library-custom-error" class="custom-exercise-error" role="status"></p></div>
+        <article id="selected-exercise" class="selected-exercise" hidden>
+          <div class="selected-exercise-visual" id="selected-figure"></div>
+          <div><p class="eyebrow">ОСНОВНАЯ НАГРУЗКА</p><h3 id="selected-exercise-name"></h3><p id="selected-exercise-target" class="muted"></p></div>
+          <label class="field-label" for="plan-target-day">Добавить в план на день</label>
+          <select id="plan-target-day"></select>
+          <button type="button" id="add-to-plan" class="primary">Добавить в план</button>
+        </article>
+      </section>
+    </section>
+
+    <section class="tab-panel" id="tab-workouts" data-panel="workouts" hidden>
+      <div class="page-heading"><div><p class="eyebrow">НЕДЕЛЬНЫЙ ПЛАН</p><h2>Тренировки</h2></div><span class="page-note">Планируй свою неделю</span></div>
+      <div id="week-grid" class="week-grid"></div>
+    </section>
+
+    <section class="tab-panel" id="tab-history" data-panel="history" hidden>
+      <div class="page-heading"><div><p class="eyebrow">ЗАПИСИ</p><h2>История</h2></div><span id="count" class="count">0</span></div>
+      <p class="muted history-subtitle">Сохранённые тренировки и подходы</p>
+      <button id="open-form" class="primary">＋ Записать тренировку</button>
+      <div id="history" class="history"></div>
+    </section>
+
+    <section class="tab-panel" id="tab-stats" data-panel="stats" hidden>
+      <div class="page-heading"><div><p class="eyebrow">ТВОЙ ПРОГРЕСС</p><h2>Статистика</h2></div></div>
+      <div id="stats-summary" class="stats-grid"></div>
+      <article class="panel-card"><h3>Активность за неделю</h3><div id="weekly-activity" class="activity-chart"></div></article>
+      <article class="panel-card"><h3>Последняя тренировка</h3><div id="last-workout-stats" class="muted">Добавь тренировку, чтобы увидеть статистику.</div></article>
+    </section>
+
+    <section class="tab-panel" id="tab-profile" data-panel="profile" hidden>
+      <div class="page-heading"><div><p class="eyebrow">МОИ ДАННЫЕ</p><h2>Профиль</h2></div></div>
+      <article class="panel-card profile-card"><div class="profile-avatar" id="profile-avatar">G</div><div><h3 id="profile-name">Профиль Telegram</h3><p class="muted" id="profile-username"></p></div></article>
+      <form id="profile-form" class="panel-card profile-form">
+        <h3>Личные показатели</h3>
+        <label class="field-label" for="profile-weight">Вес, кг<input id="profile-weight" type="number" min="20" max="500" step="0.1" placeholder="Например, 75"></label>
+        <label class="field-label" for="profile-height">Рост, см<input id="profile-height" type="number" min="80" max="250" step="1" placeholder="Например, 180"></label>
+        <label class="field-label" for="profile-goal">Цель<input id="profile-goal" maxlength="200" placeholder="Например, стать сильнее"></label>
+        <button type="submit" class="primary">Сохранить профиль</button>
+        <p id="profile-status" class="inline-status" role="status"></p>
+      </form>
+    </section>
   </main>
+
+  <nav class="bottom-nav" aria-label="Главная навигация">
+    <button type="button" class="nav-item active" data-tab="exercises"><span class="nav-icon">◉</span><span>Упражнения</span></button>
+    <button type="button" class="nav-item" data-tab="workouts"><span class="nav-icon">▦</span><span>Тренировки</span></button>
+    <button type="button" class="nav-item" data-tab="history"><span class="nav-icon">↺</span><span>История</span></button>
+    <button type="button" class="nav-item" data-tab="stats"><span class="nav-icon">▥</span><span>Статистика</span></button>
+    <button type="button" class="nav-item" data-tab="profile"><span class="nav-icon">◎</span><span>Профиль</span></button>
+  </nav>
 
   <dialog id="workout-dialog">
     <form id="workout-form">
-      <div class="dialog-head"><div><p class="eyebrow">ЗАПИСЬ</p><h2>Новая тренировка</h2></div><button type="button" id="close-form" class="close" aria-label="Закрыть">×</button></div>
+      <div class="dialog-head"><div><p class="eyebrow">ИСТОРИЯ</p><h2>Записать тренировку</h2></div><button type="button" id="close-form" class="close" aria-label="Закрыть">×</button></div>
       <label class="field-label" for="workout-date">Дата</label><input id="workout-date" type="date" required>
       <div id="exercises"></div>
       <button type="button" id="add-exercise" class="secondary">＋ Добавить упражнение</button>
       <button type="submit" class="primary save">Сохранить тренировку</button>
+      <p id="workout-error" class="inline-status" role="status"></p>
     </form>
   </dialog>
+
   <template id="exercise-template">
     <article class="exercise-card">
-      <div class="exercise-top"><label class="field-label">Упражнение<input class="exercise-name" maxlength="100" placeholder="Например, жим лёжа" required></label><button type="button" class="remove-exercise" aria-label="Удалить упражнение">×</button></div>
-      <div class="anatomy" aria-live="polite"><div class="anatomy-copy"><span class="anatomy-kicker">РАБОТАЮЩИЕ МЫШЦЫ</span><strong class="anatomy-title">Выбери упражнение</strong><span class="anatomy-hint">Начни вводить название</span></div><div class="body-map">
+      <div class="exercise-top"><div class="exercise-selectors"><label class="field-label">Группа мышц<select class="exercise-category" required></select></label><label class="field-label">Упражнение<select class="exercise-name" required></select></label></div><button type="button" class="remove-exercise" aria-label="Удалить упражнение">×</button></div>
+      <button type="button" class="add-custom-exercise">＋ Добавить своё упражнение</button>
+      <div class="custom-exercise-form" hidden><label class="field-label">Название личного упражнения<input class="custom-exercise-name" maxlength="100" placeholder="Например, жим в тренажёре" autocomplete="off"></label><div class="custom-exercise-actions"><button type="button" class="save-custom-exercise">Добавить</button><button type="button" class="cancel-custom-exercise">Отмена</button></div><p class="custom-exercise-error" role="status"></p></div>
+      <div class="anatomy" aria-live="polite"><div class="anatomy-copy"><span class="anatomy-kicker">РАБОТАЮЩИЕ МЫШЦЫ</span><strong class="anatomy-title">Выбери упражнение</strong><span class="anatomy-hint">Выбери упражнение из списка</span></div><div class="body-map">
         <svg class="body-figure" viewBox="0 0 180 270" role="img" aria-label="Схема мышц спереди"><g class="bones"><path d="M90 37V145M90 58L51 65 36 111M90 58L129 65 144 111M90 145L68 211 63 258M90 145L112 211 117 258"/><path d="M75 65L90 73 105 65M78 93L90 99 102 93M82 119L90 123 98 119M51 65L63 82M129 65L117 82M68 211L79 221M112 211L101 221"/></g><g class="muscles"><path data-muscle="chest" d="M58 68Q72 61 87 72L85 96Q69 99 57 87Z M93 72Q108 61 122 68L123 87Q111 99 95 96Z"/><path data-muscle="shoulders" d="M56 65Q45 62 43 76L53 87 61 78Z M124 65Q135 62 137 76L127 87 119 78Z"/><path data-muscle="biceps" d="M48 83Q40 91 42 106L50 109 56 88Z M132 83Q140 91 138 106L130 109 124 88Z"/><path data-muscle="abs" d="M82 99L98 99 102 135 90 141 78 135Z"/><path data-muscle="quads" d="M69 147Q80 143 87 151L80 199 67 207 61 190Z M93 151Q100 143 111 147L119 190 113 207 100 199Z"/><path data-muscle="calves" d="M66 211L79 215 75 247 65 253 61 241Z M101 215L114 211 119 241 115 253 105 247Z"/></g></svg>
         <svg class="body-figure back" viewBox="0 0 180 270" role="img" aria-label="Схема мышц сзади"><g class="bones"><path d="M90 37V145M90 58L51 65 36 111M90 58L129 65 144 111M90 145L68 211 63 258M90 145L112 211 117 258"/><path d="M75 65L90 73 105 65M78 93L90 99 102 93M82 119L90 123 98 119M51 65L63 82M129 65L117 82M68 211L79 221M112 211L101 221"/></g><g class="muscles"><path data-muscle="upperback" d="M76 66L90 73 104 66 119 80 109 102 90 110 71 102 61 80Z"/><path data-muscle="lats" d="M67 83L78 91 84 120 72 133 62 111Z M113 83L102 91 96 120 108 133 118 111Z"/><path data-muscle="triceps" d="M48 82Q39 90 42 106L49 111 56 88Z M132 82Q141 90 138 106L131 111 124 88Z"/><path data-muscle="glutes" d="M72 135Q90 128 108 135L111 151Q101 160 90 156 79 160 69 151Z"/><path data-muscle="hamstrings" d="M69 157L86 158 79 201 67 207 61 187Z M94 158L111 157 119 187 113 207 101 201Z"/><path data-muscle="calves" d="M66 211L79 215 75 247 65 253 61 241Z M101 215L114 211 119 241 115 253 105 247Z"/></g></svg></div><div class="muscle-legend"><i></i> Основная нагрузка</div></div>
       <div class="sets-head"><span>Подходы</span><span>Повторы</span><span>Вес, кг</span><span></span></div>
       <div class="sets"></div><button type="button" class="add-set">＋ Подход</button>
     </article>
   </template>
-  <script src="/static/app.js?v=2"></script>
+  <script id="exercise-catalog" type="application/json">{{ exercise_catalog|tojson }}</script>
+  <template id="muscle-figure-template"><div class="body-map category-figure"><svg class="body-figure" viewBox="0 0 180 270" aria-hidden="true"><g class="bones"><path d="M90 37V145M90 58L51 65 36 111M90 58L129 65 144 111M90 145L68 211 63 258M90 145L112 211 117 258"/><path d="M75 65L90 73 105 65M78 93L90 99 102 93M82 119L90 123 98 119M51 65L63 82M129 65L117 82M68 211L79 221M112 211L101 221"/></g><g class="muscles"><path data-muscle="chest" d="M58 68Q72 61 87 72L85 96Q69 99 57 87Z M93 72Q108 61 122 68L123 87Q111 99 95 96Z"/><path data-muscle="shoulders" d="M56 65Q45 62 43 76L53 87 61 78Z M124 65Q135 62 137 76L127 87 119 78Z"/><path data-muscle="biceps" d="M48 83Q40 91 42 106L50 109 56 88Z M132 83Q140 91 138 106L130 109 124 88Z"/><path data-muscle="abs" d="M82 99L98 99 102 135 90 141 78 135Z"/><path data-muscle="quads" d="M69 147Q80 143 87 151L80 199 67 207 61 190Z M93 151Q100 143 111 147L119 190 113 207 100 199Z"/><path data-muscle="calves" d="M66 211L79 215 75 247 65 253 61 241Z M101 215L114 211 119 241 115 253 105 247Z"/></g></svg><svg class="body-figure back" viewBox="0 0 180 270" aria-hidden="true"><g class="bones"><path d="M90 37V145M90 58L51 65 36 111M90 58L129 65 144 111M90 145L68 211 63 258M90 145L112 211 117 258"/><path d="M75 65L90 73 105 65M78 93L90 99 102 93M82 119L90 123 98 119M51 65L63 82M129 65L117 82M68 211L79 221M112 211L101 221"/></g><g class="muscles"><path data-muscle="upperback" d="M76 66L90 73 104 66 119 80 109 102 90 110 71 102 61 80Z"/><path data-muscle="lats" d="M67 83L78 91 84 120 72 133 62 111Z M113 83L102 91 96 120 108 133 118 111Z"/><path data-muscle="triceps" d="M48 82Q39 90 42 106L49 111 56 88Z M132 82Q141 90 138 106L131 111 124 88Z"/><path data-muscle="glutes" d="M72 135Q90 128 108 135L111 151Q101 160 90 156 79 160 69 151Z"/><path data-muscle="hamstrings" d="M69 157L86 158 79 201 67 207 61 187Z M94 158L111 157 119 187 113 207 101 201Z"/><path data-muscle="calves" d="M66 211L79 215 75 247 65 253 61 241Z M101 215L114 211 119 241 115 253 105 247Z"/></g></svg></div></template>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>

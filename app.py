@@ -119,6 +119,24 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS custom_exercises_user_category
             ON custom_exercises(user_id, category);
+        CREATE TABLE IF NOT EXISTS planned_exercises (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            weekday INTEGER NOT NULL CHECK(weekday BETWEEN 0 AND 6),
+            category TEXT NOT NULL,
+            name TEXT NOT NULL,
+            position INTEGER NOT NULL DEFAULT 0,
+            UNIQUE(user_id, weekday, category, name)
+        );
+        CREATE INDEX IF NOT EXISTS planned_exercises_user_day
+            ON planned_exercises(user_id, weekday, position);
+        CREATE TABLE IF NOT EXISTS profiles (
+            user_id TEXT PRIMARY KEY,
+            weight_kg REAL,
+            height_cm REAL,
+            goal TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
     """)
     db.commit()
 
@@ -155,6 +173,7 @@ def authenticated_user():
         user_id = user.get("id")
         if not isinstance(user_id, (int, str)) or not str(user_id).isdigit():
             raise ValueError("invalid user")
+        g.telegram_user = user
         return str(user_id), None
     except (ValueError, KeyError, TypeError, json.JSONDecodeError):
         return None, ("Invalid or expired Telegram authentication", 401)
@@ -162,7 +181,18 @@ def authenticated_user():
 
 @app.get("/")
 def index():
-    return render_template("index.html")
+    catalog = [
+        {
+            "id": category["id"],
+            "name": category["name"],
+            "exercises": [
+                {"name": name, "muscles": muscles, "custom": False}
+                for name, muscles in category["exercises"]
+            ],
+        }
+        for category in EXERCISE_CATEGORIES
+    ]
+    return render_template("index.html", exercise_catalog=catalog)
 
 
 @app.get("/api/exercises")
@@ -214,6 +244,118 @@ def create_custom_exercise():
     except sqlite3.IntegrityError:
         return jsonify(error="Такое личное упражнение уже добавлено."), 409
     return jsonify(name=name, category=category, custom=True), 201
+
+
+def exercise_exists_for_user(user_id, category_id, name):
+    category = next((item for item in EXERCISE_CATEGORIES if item["id"] == category_id), None)
+    if not category:
+        return False
+    if any(name == builtin_name for builtin_name, _ in category["exercises"]):
+        return True
+    return get_db().execute(
+        "SELECT 1 FROM custom_exercises WHERE user_id = ? AND category = ? AND name = ?",
+        (user_id, category_id, name),
+    ).fetchone() is not None
+
+
+@app.get("/api/plan")
+def list_weekly_plan():
+    user_id, error = authenticated_user()
+    if error:
+        return jsonify(error=error[0]), error[1]
+    rows = get_db().execute(
+        "SELECT id, weekday, category, name FROM planned_exercises WHERE user_id = ? ORDER BY weekday, position, id",
+        (user_id,),
+    ).fetchall()
+    return jsonify(plan=[dict(row) for row in rows])
+
+
+@app.post("/api/plan")
+def add_weekly_plan_exercise():
+    user_id, error = authenticated_user()
+    if error:
+        return jsonify(error=error[0]), error[1]
+    payload = request.get_json(silent=True) or {}
+    try:
+        weekday = int(payload.get("weekday"))
+    except (TypeError, ValueError):
+        return jsonify(error="Выбери день недели."), 400
+    category = str(payload.get("category", ""))
+    name = str(payload.get("name", "")).strip()
+    if weekday not in range(7) or len(name) > 100 or not name or not exercise_exists_for_user(user_id, category, name):
+        return jsonify(error="Выбери упражнение из каталога."), 400
+    try:
+        cursor = get_db().execute(
+            "INSERT INTO planned_exercises(user_id, weekday, category, name) VALUES (?, ?, ?, ?)",
+            (user_id, weekday, category, name),
+        )
+        get_db().commit()
+    except sqlite3.IntegrityError:
+        return jsonify(error="Это упражнение уже добавлено на этот день."), 409
+    return jsonify(id=cursor.lastrowid, weekday=weekday, category=category, name=name), 201
+
+
+@app.delete("/api/plan/<int:plan_id>")
+def remove_weekly_plan_exercise(plan_id):
+    user_id, error = authenticated_user()
+    if error:
+        return jsonify(error=error[0]), error[1]
+    cursor = get_db().execute(
+        "DELETE FROM planned_exercises WHERE id = ? AND user_id = ?",
+        (plan_id, user_id),
+    )
+    get_db().commit()
+    if not cursor.rowcount:
+        return jsonify(error="Упражнение не найдено."), 404
+    return jsonify(ok=True)
+
+
+@app.get("/api/profile")
+def get_profile():
+    user_id, error = authenticated_user()
+    if error:
+        return jsonify(error=error[0]), error[1]
+    row = get_db().execute(
+        "SELECT weight_kg, height_cm, goal FROM profiles WHERE user_id = ?", (user_id,)
+    ).fetchone()
+    telegram_user = getattr(g, "telegram_user", {})
+    return jsonify({
+        "first_name": telegram_user.get("first_name", ""),
+        "last_name": telegram_user.get("last_name", ""),
+        "username": telegram_user.get("username", ""),
+        "weight_kg": row["weight_kg"] if row else None,
+        "height_cm": row["height_cm"] if row else None,
+        "goal": row["goal"] if row else "",
+    })
+
+
+@app.put("/api/profile")
+def update_profile():
+    user_id, error = authenticated_user()
+    if error:
+        return jsonify(error=error[0]), error[1]
+    payload = request.get_json(silent=True) or {}
+    try:
+        weight = float(payload["weight_kg"]) if payload.get("weight_kg") not in (None, "") else None
+        height = float(payload["height_cm"]) if payload.get("height_cm") not in (None, "") else None
+        goal = str(payload.get("goal", "")).strip()[:200]
+        if weight is not None and (not math.isfinite(weight) or not 20 <= weight <= 500):
+            raise ValueError
+        if height is not None and (not math.isfinite(height) or not 80 <= height <= 250):
+            raise ValueError
+    except (ValueError, TypeError, OverflowError):
+        return jsonify(error="Проверь вес и рост."), 400
+    get_db().execute("""
+        INSERT INTO profiles(user_id, weight_kg, height_cm, goal, updated_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id) DO UPDATE SET
+            weight_kg = excluded.weight_kg,
+            height_cm = excluded.height_cm,
+            goal = excluded.goal,
+            updated_at = CURRENT_TIMESTAMP
+    """, (user_id, weight, height, goal))
+    get_db().commit()
+    return jsonify(ok=True)
 
 
 @app.get("/api/workouts")

@@ -69,6 +69,62 @@ EXERCISE_CATEGORIES = [
     ]},
 ]
 
+# RepDB's free exercise illustrations are licensed for in-app use with attribution.
+# Keep custom exercises image-free unless the user adds their own image later.
+EXERCISE_IMAGE_SLUGS = {
+    "Жим лёжа": "barbell-bench-press",
+    "Жим гантелей лёжа": "dumbbell-bench-press",
+    "Жим на наклонной скамье": "incline-bench-press-barbell",
+    "Отжимания": "push-ups",
+    "Сведения в кроссовере": "cable-crossover",
+    "Подтягивания": "wide-grip-pull-ups",
+    "Тяга верхнего блока": "lat-pulldown",
+    "Тяга штанги в наклоне": "barbell-row",
+    "Горизонтальная тяга блока": "seated-cable-row",
+    "Становая тяга": "barbell-deadlift",
+    "Жим над головой": "barbell-overhead-press",
+    "Разведения гантелей в стороны": "dumbbell-lateral-raise",
+    "Разведения гантелей в наклоне": "bent-over-dumbbell-reverse-fly",
+    "Тяга к подбородку": "barbell-upright-row",
+    "Шраги": "barbell-shrug",
+    "Сгибание рук со штангой": "barbell-curl",
+    "Сгибание гантелей молотком": "hammer-curl",
+    "Сгибание гантелей сидя": "dumbbell-curl",
+    "Разгибание рук на блоке": "cable-triceps-pushdown",
+    "Французский жим": "lying-triceps-extension",
+    "Разгибание гантели над головой": "dumbbell-overhead-triceps-extension",
+    "Отжимания на брусьях": "parallel-bar-dips",
+    "Приседания со штангой": "barbell-squat",
+    "Жим ногами": "leg-press",
+    "Выпады": "dumbbell-lunge",
+    "Румынская тяга": "romanian-deadlift",
+    "Сгибание ног в тренажёре": "lying-leg-curl",
+    "Разгибание ног в тренажёре": "leg-extension",
+    "Ягодичный мостик": "barbell-hip-thrust",
+    "Подъём на носки": "standing-calf-raise",
+    "Планка": "plank",
+    "Скручивания": "crunches",
+    "Подъём ног": "lying-leg-raise",
+}
+REPDB_IMAGE_BASE = "https://raw.githubusercontent.com/RepDB/exercise-dataset/main/images/flat"
+
+
+def exercise_image_url(name):
+    slug = EXERCISE_IMAGE_SLUGS.get(name)
+    return {
+        "start": f"{REPDB_IMAGE_BASE}/{slug}-start.webp" if slug else None,
+        "peak": f"{REPDB_IMAGE_BASE}/{slug}-peak.webp" if slug else None,
+    }
+
+
+def public_exercise(name, muscles, custom=False):
+    return {
+        "name": name,
+        "muscles": muscles,
+        "custom": custom,
+        "images": {"start": None, "peak": None} if custom else exercise_image_url(name),
+    }
+
 
 def get_db():
     if "db" not in g:
@@ -138,6 +194,15 @@ def init_db():
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
     """)
+    # Add fields used by the exercise detail logger to existing SQLite databases.
+    for table, column, definition in (
+        ("workouts", "workout_time", "TEXT NOT NULL DEFAULT ''"),
+        ("exercises", "notes", "TEXT NOT NULL DEFAULT ''"),
+        ("exercises", "is_superset", "INTEGER NOT NULL DEFAULT 0"),
+    ):
+        existing = {row["name"] for row in db.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
     db.commit()
 
 
@@ -196,7 +261,7 @@ def index():
             "id": category["id"],
             "name": category["name"],
             "exercises": [
-                {"name": name, "muscles": muscles, "custom": False}
+                public_exercise(name, muscles)
                 for name, muscles in category["exercises"]
             ],
         }
@@ -220,11 +285,11 @@ def list_exercises():
     categories = []
     for category in EXERCISE_CATEGORIES:
         items = [
-            {"name": name, "muscles": muscles, "custom": False}
+            public_exercise(name, muscles)
             for name, muscles in category["exercises"]
         ]
         items.extend(
-            {"name": name, "muscles": [], "custom": True}
+            public_exercise(name, [], custom=True)
             for name in custom_by_category.get(category["id"], [])
         )
         categories.append({"id": category["id"], "name": category["name"], "exercises": items})
@@ -374,21 +439,21 @@ def list_workouts():
     if error:
         return jsonify(error=error[0]), error[1]
     rows = get_db().execute("""
-        SELECT id, workout_date FROM workouts WHERE user_id = ?
+        SELECT id, workout_date, workout_time FROM workouts WHERE user_id = ?
         ORDER BY workout_date DESC, id DESC
     """, (user_id,)).fetchall()
     workouts = []
     for row in rows:
         exercises = get_db().execute(
-            "SELECT id, name FROM exercises WHERE workout_id = ? ORDER BY position", (row["id"],)
+            "SELECT id, name, notes, is_superset FROM exercises WHERE workout_id = ? ORDER BY position", (row["id"],)
         ).fetchall()
         items = []
         for exercise in exercises:
             sets = get_db().execute(
                 "SELECT reps, weight FROM sets WHERE exercise_id = ? ORDER BY position", (exercise["id"],)
             ).fetchall()
-            items.append({"name": exercise["name"], "sets": [dict(s) for s in sets]})
-        workouts.append({"id": row["id"], "date": row["workout_date"], "exercises": items})
+            items.append({"name": exercise["name"], "notes": exercise["notes"], "is_superset": bool(exercise["is_superset"]), "sets": [dict(s) for s in sets]})
+        workouts.append({"id": row["id"], "date": row["workout_date"], "time": row["workout_time"], "exercises": items})
     return jsonify(workouts)
 
 
@@ -399,6 +464,7 @@ def create_workout():
         return jsonify(error=error[0]), error[1]
     payload = request.get_json(silent=True) or {}
     workout_date = payload.get("date")
+    workout_time = str(payload.get("time", "")).strip()
     exercises = payload.get("exercises")
     try:
         date.fromisoformat(workout_date)
@@ -410,8 +476,12 @@ def create_workout():
         return jsonify(error="Слишком много упражнений."), 400
     normalized = []
     try:
+        if workout_time and (len(workout_time) != 5 or workout_time[2] != ":"):
+            raise ValueError
         for exercise in exercises:
             name = str(exercise.get("name", "")).strip()
+            notes = str(exercise.get("notes", "")).strip()[:1000]
+            is_superset = bool(exercise.get("is_superset", False))
             sets = exercise.get("sets")
             if not name or len(name) > 100 or not isinstance(sets, list) or not sets or len(sets) > 50:
                 raise ValueError
@@ -421,17 +491,17 @@ def create_workout():
                 if reps < 1 or reps > 1000 or not math.isfinite(weight) or weight < 0 or weight > 10000:
                     raise ValueError
                 clean_sets.append((reps, weight))
-            normalized.append((name, clean_sets))
+            normalized.append((name, clean_sets, notes, is_superset))
     except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
         return jsonify(error="Проверьте упражнения, повторы и вес."), 400
 
     db = get_db()
-    cursor = db.execute("INSERT INTO workouts(user_id, workout_date) VALUES (?, ?)", (user_id, workout_date))
+    cursor = db.execute("INSERT INTO workouts(user_id, workout_date, workout_time) VALUES (?, ?, ?)", (user_id, workout_date, workout_time))
     workout_id = cursor.lastrowid
-    for exercise_index, (name, sets) in enumerate(normalized):
+    for exercise_index, (name, sets, notes, is_superset) in enumerate(normalized):
         exercise_id = db.execute(
-            "INSERT INTO exercises(workout_id, name, position) VALUES (?, ?, ?)",
-            (workout_id, name, exercise_index),
+            "INSERT INTO exercises(workout_id, name, position, notes, is_superset) VALUES (?, ?, ?, ?, ?)",
+            (workout_id, name, exercise_index, notes, int(is_superset)),
         ).lastrowid
         db.executemany(
             "INSERT INTO sets(exercise_id, reps, weight, position) VALUES (?, ?, ?, ?)",

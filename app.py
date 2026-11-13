@@ -162,13 +162,13 @@ def authenticated_user():
             app.logger.warning("Telegram auth rejected: malformed_init_data")
             return None, ("Telegram прислал некорректные данные. Закрой Mini App и открой её заново из бота.", 401)
         received_hash = data.pop("hash")
-        data.pop("signature", None)
+        # Keep `signature` here: Telegram's HMAC check string excludes only `hash`.
         check_string = "\n".join(f"{key}={value}" for key, value in sorted(data.items()))
-        secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
+        secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest() 
         expected_hash = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected_hash, received_hash):
-            app.logger.warning("Telegram auth rejected: signature_mismatch_check_render_bot_token")
-            return None, ("Подпись Telegram не совпала. Проверь BOT_TOKEN в Render: нужен токен именно этого бота.", 401)
+            app.logger.warning("Telegram auth rejected: hmac_hash_mismatch")
+            return None, ("Подпись данных Telegram не совпала. Проверь, что на Render развернута последняя версия app.py и указан токен этого бота.", 401)
         auth_date = int(data["auth_date"])
         now = int(time.time())
         if auth_date > now + 60:

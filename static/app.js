@@ -60,6 +60,33 @@ function makeMuscleFigure(activeMuscles = []) {
   return figure;
 }
 
+function exerciseArtwork(exercise, muscles, mode = "card") {
+  const images = exercise.images || {};
+  const urls = (mode === "detail" ? [images.start, images.peak] : [images.peak || images.start]).filter(Boolean);
+  if (!urls.length) {
+    const fallback = document.createElement("span");
+    fallback.className = "exercise-art-fallback";
+    fallback.append(makeMuscleFigure(muscles));
+    return fallback;
+  }
+  const wrapper = document.createElement("span");
+  wrapper.className = mode === "detail" ? "exercise-art-pair" : "exercise-artwork";
+  for (const [index, url] of urls.entries()) {
+    const image = document.createElement("img");
+    image.src = url;
+    image.alt = `${exercise.name}: ${index === 0 ? "положение в движении" : "начало упражнения"}`;
+    image.loading = "lazy";
+    image.onerror = () => {
+      const fallback = document.createElement("span");
+      fallback.className = "exercise-art-fallback";
+      fallback.append(makeMuscleFigure(muscles));
+      image.replaceWith(fallback);
+    };
+    wrapper.append(image);
+  }
+  return wrapper;
+}
+
 function renderCategories() {
   const grid = document.querySelector("#category-grid");
   grid.replaceChildren();
@@ -98,7 +125,7 @@ function openCategory(categoryId) {
     const detail = muscles.map((muscle) => targetLabels[muscle]).filter(Boolean).join(", ") || currentCategory.name.toLowerCase();
     const visual = document.createElement("span");
     visual.className = "library-exercise-visual";
-    visual.append(makeMuscleFigure(muscles));
+    visual.append(exerciseArtwork(exercise, muscles));
     const copy = document.createElement("span");
     copy.className = "library-exercise-copy";
     copy.innerHTML = `<strong>${escapeHtml(exercise.name)}</strong><small>${exercise.custom ? "Личное упражнение" : `Работают: ${escapeHtml(detail)}`}</small>`;
@@ -114,15 +141,60 @@ function selectLibraryExercise(exercise) {
   selectedExercise = exercise;
   const detail = document.querySelector("#selected-exercise");
   const muscles = exercise.custom ? musclesForCategory(currentCategory.id) : (exercise.muscles || []);
-  document.querySelector("#selected-figure").replaceChildren(makeMuscleFigure(muscles));
+  document.querySelector("#selected-figure").replaceChildren(exerciseArtwork(exercise, muscles, "detail"));
   document.querySelector("#selected-exercise-name").textContent = exercise.name;
   document.querySelector("#selected-exercise-target").textContent = exercise.custom ? `Личное · ${currentCategory.name}` : muscles.map((muscle) => targetLabels[muscle]).filter(Boolean).join(", ");
   const daySelect = document.querySelector("#plan-target-day");
   daySelect.replaceChildren(...weekdays.map((day, index) => new Option(day, String(index))));
   daySelect.value = String(planTargetDay);
   detail.hidden = false;
+  document.querySelector("#exercise-log-date").value = new Date().toLocaleDateString("en-CA");
+  document.querySelector("#exercise-log-time").value = new Date().toTimeString().slice(0, 5);
+  document.querySelector("#exercise-log-notes").value = "";
+  document.querySelector("#exercise-log-superset").checked = false;
+  document.querySelector("#exercise-log-error").textContent = "";
+  const logSets = document.querySelector("#exercise-log-sets");
+  logSets.replaceChildren();
+  addSet(logSets);
   detail.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
+
+document.querySelector("#close-exercise-detail").addEventListener("click", () => {
+  document.querySelector("#selected-exercise").hidden = true;
+});
+
+document.querySelector("#exercise-log-add-set").addEventListener("click", () => addSet(document.querySelector("#exercise-log-sets")));
+
+document.querySelector("#finish-exercise").addEventListener("click", async (event) => {
+  if (!currentCategory || !selectedExercise) return;
+  const button = event.currentTarget;
+  const sets = [...document.querySelectorAll("#exercise-log-sets .set-row")].map((row) => ({
+    reps: row.querySelector(".reps").value,
+    weight: row.querySelector(".weight").value,
+  }));
+  const error = document.querySelector("#exercise-log-error");
+  button.disabled = true;
+  try {
+    await api("/api/workouts", { method: "POST", body: JSON.stringify({
+      date: document.querySelector("#exercise-log-date").value,
+      time: document.querySelector("#exercise-log-time").value,
+      exercises: [{
+        name: selectedExercise.name,
+        sets,
+        notes: document.querySelector("#exercise-log-notes").value,
+        is_superset: document.querySelector("#exercise-log-superset").checked,
+      }],
+    }) });
+    document.querySelector("#selected-exercise").hidden = true;
+    switchTab("history");
+    await loadHistory();
+    showSuccess(`${selectedExercise.name}: упражнение записано.`);
+  } catch (requestError) {
+    error.textContent = requestError.message;
+  } finally {
+    button.disabled = false;
+  }
+});
 
 document.querySelector("#back-categories").addEventListener("click", () => {
   document.querySelector("#exercise-browser").hidden = true;
@@ -244,8 +316,8 @@ function renderHistory(workouts) {
   }
   historyEl.innerHTML = workouts.map((workout) => {
     const dateText = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long", year: "numeric" }).format(new Date(`${workout.date}T12:00:00`));
-    const details = workout.exercises.map((exercise) => `<div class="history-exercise"><span>${escapeHtml(exercise.name)}</span><span>${exercise.sets.map((set) => `${set.reps} × ${set.weight} кг`).join(" · ")}</span></div>`).join("");
-    return `<article class="workout-card"><div class="workout-date">${dateText}</div>${details}</article>`;
+    const details = workout.exercises.map((exercise) => `<div class="history-exercise"><span>${escapeHtml(exercise.name)}${exercise.is_superset ? " · суперсет" : ""}</span><span>${exercise.sets.map((set) => `${set.reps} × ${set.weight} кг`).join(" · ")}</span>${exercise.notes ? `<small>${escapeHtml(exercise.notes)}</small>` : ""}</div>`).join("");
+    return `<article class="workout-card"><div class="workout-date">${dateText}${workout.time ? ` · ${escapeHtml(workout.time)}` : ""}</div>${details}</article>`;
   }).join("");
 }
 

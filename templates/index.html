@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#100d18">
   <title>GymTracker</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=4">
+  <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
   <main class="app">
@@ -23,8 +23,21 @@
         <button type="button" id="library-add-custom" class="add-custom-exercise">＋ Добавить своё упражнение в эту группу</button>
         <div id="library-custom-form" class="custom-exercise-form" hidden><label class="field-label" for="library-custom-name">Название личного упражнения<input id="library-custom-name" maxlength="100" placeholder="Например, жим в тренажёре" autocomplete="off"></label><div class="custom-exercise-actions"><button type="button" id="library-save-custom" class="save-custom-exercise">Добавить</button><button type="button" id="library-cancel-custom" class="cancel-custom-exercise">Отмена</button></div><p id="library-custom-error" class="custom-exercise-error" role="status"></p></div>
         <article id="selected-exercise" class="selected-exercise" hidden>
-          <div class="selected-exercise-visual" id="selected-figure"></div>
-          <div><p class="eyebrow">ОСНОВНАЯ НАГРУЗКА</p><h3 id="selected-exercise-name"></h3><p id="selected-exercise-target" class="muted"></p></div>
+          <button type="button" id="close-exercise-detail" class="text-button detail-back">← К упражнениям</button>
+          <div class="exercise-detail-hero">
+            <div class="exercise-detail-image" id="selected-figure"></div>
+            <div class="exercise-detail-copy"><p class="eyebrow">УПРАЖНЕНИЕ</p><h3 id="selected-exercise-name"></h3><p id="selected-exercise-target" class="muted"></p></div>
+          </div>
+          <div class="exercise-log-fields">
+            <h4>Данные тренировки</h4>
+            <div class="date-time-fields"><label class="field-label">Дата<input id="exercise-log-date" type="date" required></label><label class="field-label">Время<input id="exercise-log-time" type="time" required></label></div>
+            <div class="section-head sets-title"><h3>Подходы</h3><button type="button" id="exercise-log-add-set" class="add-set-inline">＋</button></div>
+            <div id="exercise-log-sets" class="sets detail-sets"></div>
+            <label class="field-label detail-notes-label">Заметки<textarea id="exercise-log-notes" rows="3" maxlength="1000" placeholder="Техника, самочувствие, комментарии…"></textarea></label>
+            <label class="superset-toggle"><input id="exercise-log-superset" type="checkbox"><span>Суперсет</span></label>
+            <button type="button" id="finish-exercise" class="primary finish-exercise">Завершить упражнение</button>
+            <p id="exercise-log-error" class="inline-status" role="status"></p>
+          </div>
           <label class="field-label" for="plan-target-day">Добавить в план на день</label>
           <select id="plan-target-day"></select>
           <button type="button" id="add-to-plan" class="primary">Добавить в план</button>
@@ -72,6 +85,7 @@
     <button type="button" class="nav-item" data-tab="stats"><span class="nav-icon">▥</span><span>Статистика</span></button>
     <button type="button" class="nav-item" data-tab="profile"><span class="nav-icon">◎</span><span>Профиль</span></button>
   </nav>
+  <footer class="app-credit"><a href="https://repdb.co" target="_blank" rel="nofollow noopener">Exercise data by RepDB (repdb.co)</a></footer>
 
   <dialog id="workout-dialog">
     <form id="workout-form">
@@ -143,6 +157,6 @@
       </svg>
     </div>
   </template>
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>

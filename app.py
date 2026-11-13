@@ -19,6 +19,56 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 MAX_INIT_DATA_AGE = int(os.getenv("MAX_INIT_DATA_AGE", "86400"))
 app = Flask(__name__)
 
+EXERCISE_CATEGORIES = [
+    {"id": "chest", "name": "Грудь", "exercises": [
+        ("Жим лёжа", ["chest", "triceps", "shoulders"]),
+        ("Жим гантелей лёжа", ["chest", "triceps", "shoulders"]),
+        ("Жим на наклонной скамье", ["chest", "shoulders", "triceps"]),
+        ("Отжимания", ["chest", "triceps", "shoulders"]),
+        ("Сведения в кроссовере", ["chest"]),
+    ]},
+    {"id": "back", "name": "Спина", "exercises": [
+        ("Подтягивания", ["lats", "upperback", "biceps"]),
+        ("Тяга верхнего блока", ["lats", "biceps"]),
+        ("Тяга штанги в наклоне", ["upperback", "lats", "biceps"]),
+        ("Горизонтальная тяга блока", ["lats", "upperback", "biceps"]),
+        ("Становая тяга", ["hamstrings", "glutes", "upperback", "lats"]),
+    ]},
+    {"id": "shoulders", "name": "Плечи", "exercises": [
+        ("Жим над головой", ["shoulders", "triceps"]),
+        ("Разведения гантелей в стороны", ["shoulders"]),
+        ("Разведения гантелей в наклоне", ["upperback", "shoulders"]),
+        ("Тяга к подбородку", ["shoulders", "biceps"]),
+        ("Шраги", ["upperback"]),
+    ]},
+    {"id": "biceps", "name": "Бицепс", "exercises": [
+        ("Сгибание рук со штангой", ["biceps"]),
+        ("Сгибание гантелей молотком", ["biceps"]),
+        ("Сгибание гантелей сидя", ["biceps"]),
+    ]},
+    {"id": "triceps", "name": "Трицепс", "exercises": [
+        ("Разгибание рук на блоке", ["triceps"]),
+        ("Французский жим", ["triceps"]),
+        ("Разгибание гантели над головой", ["triceps"]),
+        ("Отжимания на брусьях", ["triceps", "chest", "shoulders"]),
+    ]},
+    {"id": "legs", "name": "Ноги и ягодицы", "exercises": [
+        ("Приседания со штангой", ["quads", "glutes"]),
+        ("Жим ногами", ["quads", "glutes"]),
+        ("Выпады", ["quads", "glutes"]),
+        ("Румынская тяга", ["hamstrings", "glutes"]),
+        ("Сгибание ног в тренажёре", ["hamstrings"]),
+        ("Разгибание ног в тренажёре", ["quads"]),
+        ("Ягодичный мостик", ["glutes", "hamstrings"]),
+        ("Подъём на носки", ["calves"]),
+    ]},
+    {"id": "abs", "name": "Пресс", "exercises": [
+        ("Планка", ["abs"]),
+        ("Скручивания", ["abs"]),
+        ("Подъём ног", ["abs"]),
+    ]},
+]
+
 
 def get_db():
     if "db" not in g:
@@ -59,6 +109,16 @@ def init_db():
             weight REAL NOT NULL,
             position INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS custom_exercises (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            category TEXT NOT NULL,
+            name TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, category, name)
+        );
+        CREATE INDEX IF NOT EXISTS custom_exercises_user_category
+            ON custom_exercises(user_id, category);
     """)
     db.commit()
 
@@ -103,6 +163,57 @@ def authenticated_user():
 @app.get("/")
 def index():
     return render_template("index.html")
+
+
+@app.get("/api/exercises")
+def list_exercises():
+    user_id, error = authenticated_user()
+    if error:
+        return jsonify(error=error[0]), error[1]
+    custom_rows = get_db().execute(
+        "SELECT category, name FROM custom_exercises WHERE user_id = ? ORDER BY name COLLATE NOCASE",
+        (user_id,),
+    ).fetchall()
+    custom_by_category = {}
+    for row in custom_rows:
+        custom_by_category.setdefault(row["category"], []).append(row["name"])
+    categories = []
+    for category in EXERCISE_CATEGORIES:
+        items = [
+            {"name": name, "muscles": muscles, "custom": False}
+            for name, muscles in category["exercises"]
+        ]
+        items.extend(
+            {"name": name, "muscles": [], "custom": True}
+            for name in custom_by_category.get(category["id"], [])
+        )
+        categories.append({"id": category["id"], "name": category["name"], "exercises": items})
+    return jsonify(categories=categories)
+
+
+@app.post("/api/exercises")
+def create_custom_exercise():
+    user_id, error = authenticated_user()
+    if error:
+        return jsonify(error=error[0]), error[1]
+    payload = request.get_json(silent=True) or {}
+    category = str(payload.get("category", ""))
+    name = str(payload.get("name", "")).strip()
+    allowed_categories = {item["id"] for item in EXERCISE_CATEGORIES}
+    if category not in allowed_categories or not name or len(name) > 100:
+        return jsonify(error="Укажите категорию и название до 100 символов."), 400
+    category_data = next(item for item in EXERCISE_CATEGORIES if item["id"] == category)
+    if any(name.casefold() == builtin_name.casefold() for builtin_name, _ in category_data["exercises"]):
+        return jsonify(error="Это упражнение уже есть в базовом списке."), 409
+    try:
+        get_db().execute(
+            "INSERT INTO custom_exercises(user_id, category, name) VALUES (?, ?, ?)",
+            (user_id, category, name),
+        )
+        get_db().commit()
+    except sqlite3.IntegrityError:
+        return jsonify(error="Такое личное упражнение уже добавлено."), 409
+    return jsonify(name=name, category=category, custom=True), 201
 
 
 @app.get("/api/workouts")

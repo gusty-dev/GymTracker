@@ -7,6 +7,7 @@ const statusEl = document.querySelector("#status");
 const dialog = document.querySelector("#workout-dialog");
 const exerciseList = document.querySelector("#exercises");
 const initData = tg?.initData || "";
+let exerciseCategories = [];
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -56,41 +57,80 @@ function renumberSets(container) {
   [...container.children].forEach((row, index) => row.querySelector(".set-number").textContent = index + 1);
 }
 
-const exerciseMuscles = [
-  { match: /жим лёжа|жим лежа|bench press|отжиман|push.?up/, title: "Жим лёжа", hint: "Грудь, трицепс и передняя часть плеч", muscles: ["chest", "triceps", "shoulders"] },
-  { match: /жим стоя|армейский жим|жим над головой|overhead press|shoulder press/, title: "Жим над головой", hint: "Плечи и трицепс", muscles: ["shoulders", "triceps"] },
-  { match: /присед|squat/, title: "Приседания", hint: "Квадрицепсы и ягодицы", muscles: ["quads", "glutes"] },
-  { match: /становая|румынская тяга|тяга на прямых|deadlift|romanian deadlift/, title: "Становая тяга", hint: "Задняя поверхность бедра, спина и ягодицы", muscles: ["hamstrings", "glutes", "upperback", "lats"] },
-  { match: /тяга штанги|тяга гантел|тяга блока|тяга горизонт|гребн|row|pulldown|подтягиван/, title: "Тяга на спину", hint: "Широчайшие, верх спины и бицепс", muscles: ["lats", "upperback", "biceps"] },
-  { match: /сгибан.*бицепс|подъём на бицепс|подъем на бицепс|bicep curl|бицепс/, title: "Сгибание на бицепс", hint: "Бицепс", muscles: ["biceps"] },
-  { match: /разгибан.*трицепс|французский жим|tricep/, title: "Упражнение на трицепс", hint: "Трицепс", muscles: ["triceps"] },
-  { match: /икр|подъём на носки|подъем на носки|calf raise/, title: "Подъём на носки", hint: "Икроножные мышцы", muscles: ["calves"] },
-  { match: /пресс|скручиван|планка|crunch|plank/, title: "Упражнение на пресс", hint: "Мышцы живота", muscles: ["abs"] },
-];
-
-function updateAnatomy(card) {
-  const raw = card.querySelector(".exercise-name").value.trim();
-  const found = exerciseMuscles.find((item) => item.match.test(raw));
-  card.querySelector(".anatomy-title").textContent = found ? found.title : (raw ? "Упражнение не распознано" : "Выбери упражнение");
-  card.querySelector(".anatomy-hint").textContent = found ? found.hint : (raw ? "Для него пока нет схемы мышц" : "Начни вводить название");
-  card.querySelectorAll("[data-muscle]").forEach((muscle) => muscle.classList.toggle("active", Boolean(found?.muscles.includes(muscle.dataset.muscle))));
+async function loadExerciseCatalog() {
+  const result = await api("/api/exercises");
+  exerciseCategories = result.categories;
 }
 
-function addExercise(name = "") {
-  const element = document.querySelector("#exercise-template").content.cloneNode(true);
-  const card = element.querySelector(".exercise-card");
-  const sets = card.querySelector(".sets");
-  const nameInput = card.querySelector(".exercise-name");
-  nameInput.value = name;
-  nameInput.addEventListener("input", () => updateAnatomy(card));
-  card.querySelector(".add-set").addEventListener("click", () => addSet(sets));
-  card.querySelector(".remove-exercise").addEventListener("click", () => card.remove());
-  addSet(sets);
-  exerciseList.append(card);
+function selectedCategory(card) {
+  return exerciseCategories.find((category) => category.id === card.querySelector(".exercise-category").value);
+}
+
+function updateAnatomy(card) {
+  const category = selectedCategory(card);
+  const exercise = category?.exercises.find((item) => item.name === card.querySelector(".exercise-name").value);
+  card.querySelector(".anatomy-title").textContent = exercise?.name || "Выбери упражнение";
+  const targetLabels = { chest: "грудь", shoulders: "плечи", triceps: "трицепс", biceps: "бицепс", abs: "пресс", quads: "квадрицепсы", calves: "икры", upperback: "верх спины", lats: "широчайшие", glutes: "ягодицы", hamstrings: "бицепс бедра" };
+  const categoryMuscles = { chest: ["chest"], back: ["lats", "upperback"], shoulders: ["shoulders"], biceps: ["biceps"], triceps: ["triceps"], legs: ["quads", "hamstrings", "glutes", "calves"], abs: ["abs"] };
+  const activeMuscles = exercise?.custom ? categoryMuscles[category.id] : exercise?.muscles;
+  const targets = activeMuscles?.map((muscle) => targetLabels[muscle]).filter(Boolean) || [];
+  card.querySelector(".anatomy-hint").textContent = !exercise ? "Выбери упражнение из списка" : exercise.custom ? `Личное · ${targets.join(", ")}` : `Основная нагрузка: ${targets.join(", ") || category.name.toLowerCase()}`;
+  card.querySelectorAll("[data-muscle]").forEach((muscle) => muscle.classList.toggle("active", Boolean(activeMuscles?.includes(muscle.dataset.muscle))));
+}
+
+function renderExerciseOptions(card, selectedName = "") {
+  const category = selectedCategory(card);
+  const select = card.querySelector(".exercise-name");
+  select.replaceChildren(new Option("Выбери упражнение", ""));
+  for (const exercise of category?.exercises || []) {
+    select.add(new Option(exercise.custom ? `${exercise.name} · личное` : exercise.name, exercise.name));
+  }
+  select.value = category?.exercises.some((item) => item.name === selectedName) ? selectedName : (category?.exercises[0]?.name || "");
   updateAnatomy(card);
 }
 
-document.querySelector("#open-form").addEventListener("click", () => {
+function addExercise() {
+  const element = document.querySelector("#exercise-template").content.cloneNode(true);
+  const card = element.querySelector(".exercise-card");
+  const sets = card.querySelector(".sets");
+  const categorySelect = card.querySelector(".exercise-category");
+  for (const category of exerciseCategories) categorySelect.add(new Option(category.name, category.id));
+  categorySelect.addEventListener("change", () => renderExerciseOptions(card));
+  card.querySelector(".exercise-name").addEventListener("change", () => updateAnatomy(card));
+  card.querySelector(".add-set").addEventListener("click", () => addSet(sets));
+  card.querySelector(".remove-exercise").addEventListener("click", () => card.remove());
+  const customForm = card.querySelector(".custom-exercise-form");
+  card.querySelector(".add-custom-exercise").addEventListener("click", () => {
+    customForm.hidden = false;
+    card.querySelector(".custom-exercise-name").focus();
+  });
+  card.querySelector(".cancel-custom-exercise").addEventListener("click", () => {
+    customForm.hidden = true;
+    card.querySelector(".custom-exercise-error").textContent = "";
+  });
+  card.querySelector(".save-custom-exercise").addEventListener("click", async () => {
+    const name = card.querySelector(".custom-exercise-name").value.trim();
+    const error = card.querySelector(".custom-exercise-error");
+    if (!name) { error.textContent = "Введи название упражнения."; return; }
+    try {
+      const categoryId = categorySelect.value;
+      await api("/api/exercises", { method: "POST", body: JSON.stringify({ name, category: categoryId }) });
+      await loadExerciseCatalog();
+      renderExerciseOptions(card, name);
+      card.querySelector(".custom-exercise-name").value = "";
+      customForm.hidden = true;
+    } catch (requestError) { error.textContent = requestError.message; }
+  });
+  categorySelect.value = exerciseCategories[0]?.id || "";
+  renderExerciseOptions(card);
+  addSet(sets);
+  exerciseList.append(card);
+}
+
+document.querySelector("#open-form").addEventListener("click", async () => {
+  try {
+    if (!exerciseCategories.length) await loadExerciseCatalog();
+  } catch (error) { showError(error); return; }
   document.querySelector("#workout-date").value = new Date().toLocaleDateString("en-CA");
   exerciseList.replaceChildren();
   addExercise();

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#100d18">
   <title>GymTracker</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=3">
+  <link rel="stylesheet" href="/static/style.css?v=4">
 </head>
 <body>
   <main class="app">
@@ -14,7 +14,7 @@
     <p id="status" class="status" role="status"></p>
 
     <section class="tab-panel active" id="tab-exercises" data-panel="exercises">
-      <div class="page-heading"><div><p class="eyebrow">БИБЛИОТЕКА</p><h2>Упражнения</h2></div><span class="page-note">Выбери группу мышц</span></div>
+      <div class="page-heading"><div><p class="eyebrow">КАТАЛОГ ТРЕНИРОВОК</p><h2>Категории</h2></div><span class="page-note">Выберите группу мышц</span></div>
       <div id="category-grid" class="category-grid"></div>
       <section id="exercise-browser" class="exercise-browser" hidden>
         <button type="button" id="back-categories" class="text-button">← Все группы</button>
@@ -66,8 +66,8 @@
   </main>
 
   <nav class="bottom-nav" aria-label="Главная навигация">
-    <button type="button" class="nav-item active" data-tab="exercises"><span class="nav-icon">◉</span><span>Упражнения</span></button>
-    <button type="button" class="nav-item" data-tab="workouts"><span class="nav-icon">▦</span><span>Тренировки</span></button>
+    <button type="button" class="nav-item active" data-tab="exercises"><span class="nav-icon">◉</span><span>Категории</span></button>
+    <button type="button" class="nav-item" data-tab="workouts"><span class="nav-icon">▦</span><span>План</span></button>
     <button type="button" class="nav-item" data-tab="history"><span class="nav-icon">↺</span><span>История</span></button>
     <button type="button" class="nav-item" data-tab="stats"><span class="nav-icon">▥</span><span>Статистика</span></button>
     <button type="button" class="nav-item" data-tab="profile"><span class="nav-icon">◎</span><span>Профиль</span></button>
@@ -97,7 +97,52 @@
     </article>
   </template>
   <script id="exercise-catalog" type="application/json">{{ exercise_catalog|tojson }}</script>
-  <template id="muscle-figure-template"><div class="body-map category-figure"><svg class="body-figure" viewBox="0 0 180 270" aria-hidden="true"><g class="bones"><path d="M90 37V145M90 58L51 65 36 111M90 58L129 65 144 111M90 145L68 211 63 258M90 145L112 211 117 258"/><path d="M75 65L90 73 105 65M78 93L90 99 102 93M82 119L90 123 98 119M51 65L63 82M129 65L117 82M68 211L79 221M112 211L101 221"/></g><g class="muscles"><path data-muscle="chest" d="M58 68Q72 61 87 72L85 96Q69 99 57 87Z M93 72Q108 61 122 68L123 87Q111 99 95 96Z"/><path data-muscle="shoulders" d="M56 65Q45 62 43 76L53 87 61 78Z M124 65Q135 62 137 76L127 87 119 78Z"/><path data-muscle="biceps" d="M48 83Q40 91 42 106L50 109 56 88Z M132 83Q140 91 138 106L130 109 124 88Z"/><path data-muscle="abs" d="M82 99L98 99 102 135 90 141 78 135Z"/><path data-muscle="quads" d="M69 147Q80 143 87 151L80 199 67 207 61 190Z M93 151Q100 143 111 147L119 190 113 207 100 199Z"/><path data-muscle="calves" d="M66 211L79 215 75 247 65 253 61 241Z M101 215L114 211 119 241 115 253 105 247Z"/></g></svg><svg class="body-figure back" viewBox="0 0 180 270" aria-hidden="true"><g class="bones"><path d="M90 37V145M90 58L51 65 36 111M90 58L129 65 144 111M90 145L68 211 63 258M90 145L112 211 117 258"/><path d="M75 65L90 73 105 65M78 93L90 99 102 93M82 119L90 123 98 119M51 65L63 82M129 65L117 82M68 211L79 221M112 211L101 221"/></g><g class="muscles"><path data-muscle="upperback" d="M76 66L90 73 104 66 119 80 109 102 90 110 71 102 61 80Z"/><path data-muscle="lats" d="M67 83L78 91 84 120 72 133 62 111Z M113 83L102 91 96 120 108 133 118 111Z"/><path data-muscle="triceps" d="M48 82Q39 90 42 106L49 111 56 88Z M132 82Q141 90 138 106L131 111 124 88Z"/><path data-muscle="glutes" d="M72 135Q90 128 108 135L111 151Q101 160 90 156 79 160 69 151Z"/><path data-muscle="hamstrings" d="M69 157L86 158 79 201 67 207 61 187Z M94 158L111 157 119 187 113 207 101 201Z"/><path data-muscle="calves" d="M66 211L79 215 75 247 65 253 61 241Z M101 215L114 211 119 241 115 253 105 247Z"/></g></svg></div></template>
-  <script src="/static/app.js?v=3"></script>
+  <template id="muscle-figure-template">
+    <div class="body-map category-figure">
+      <svg class="body-figure" viewBox="0 0 180 270" aria-hidden="true">
+        <g class="body-base">
+          <ellipse cx="90" cy="27" rx="14" ry="18"/>
+          <path d="M81 42h18l5 10-14 11-14-11z"/>
+          <path d="M75 47q-13 1-23 7l9 20 5 31-3 34q10 11 27 11t27-11l-3-34 5-31 9-20q-10-6-23-7l-15 10z"/>
+          <path d="M53 53q-9 3-13 14l-7 31q-3 10 1 18l9 24 9-4-5-25 10-28-2-20 9-9z"/>
+          <path d="M127 53q9 3 13 14l7 31q3 10-1 18l-9 24-9-4 5-25-10-28 2-20-9-9z"/>
+          <path d="M68 143q-8 4-8 19l6 27q3 10 4 21l-4 39q-1 7 4 11l11 1 4-8 4-43 1-57z"/>
+          <path d="M112 143q8 4 8 19l-6 27q-3 10-4 21l4 39q1 7-4 11l-11 1-4-8-4-43-1-57z"/>
+        </g>
+        <g class="body-details">
+          <path d="M90 62v81M72 101q18 6 36 0M75 116q15 5 30 0M77 130q13 4 26 0M65 185q7 5 16 1M99 186q9 4 16-1M68 224l13 2M99 226l13-2"/>
+        </g>
+        <g class="muscles">
+          <path data-muscle="chest" d="M58 68Q72 61 87 72L85 96Q69 99 57 87Z M93 72Q108 61 122 68L123 87Q111 99 95 96Z"/>
+          <path data-muscle="shoulders" d="M56 56Q44 56 42 72L53 87 63 76Z M124 56Q136 56 138 72L127 87 117 76Z"/>
+          <path data-muscle="biceps" d="M48 81Q40 91 42 106L50 111 57 87Z M132 81Q140 91 138 106L130 111 123 87Z"/>
+          <path data-muscle="abs" d="M82 99L98 99 102 136 90 142 78 136Z"/>
+          <path data-muscle="quads" d="M69 148Q80 143 87 152L81 188 69 198 63 185Z M93 152Q100 143 111 148L117 185 111 198 99 188Z"/>
+          <path data-muscle="calves" d="M68 201L81 202 78 238 67 251 63 242Z M99 202L112 201 117 242 113 251 102 238Z"/>
+        </g>
+      </svg>
+      <svg class="body-figure back" viewBox="0 0 180 270" aria-hidden="true">
+        <g class="body-base">
+          <ellipse cx="90" cy="27" rx="14" ry="18"/>
+          <path d="M81 42h18l5 10-14 11-14-11z"/>
+          <path d="M75 47q-13 1-23 7l9 20 5 31-3 34q10 11 27 11t27-11l-3-34 5-31 9-20q-10-6-23-7l-15 10z"/>
+          <path d="M53 53q-9 3-13 14l-7 31q-3 10 1 18l9 24 9-4-5-25 10-28-2-20 9-9z"/>
+          <path d="M127 53q9 3 13 14l7 31q3 10-1 18l-9 24-9-4 5-25-10-28 2-20-9-9z"/>
+          <path d="M68 143q-8 4-8 19l6 27q3 10 4 21l-4 39q-1 7 4 11l11 1 4-8 4-43 1-57z"/>
+          <path d="M112 143q8 4 8 19l-6 27q-3 10-4 21l4 39q1 7-4 11l-11 1-4-8-4-43-1-57z"/>
+        </g>
+        <g class="body-details"><path d="M90 61v80M68 101q22 17 44 0M72 127q18 12 36 0M65 185q8 4 16 0M99 185q8 4 16 0M68 224l13 2M99 226l13-2"/></g>
+        <g class="muscles">
+          <path data-muscle="upperback" d="M76 65L90 73 104 65 119 80 109 102 90 110 71 102 61 80Z"/>
+          <path data-muscle="lats" d="M67 83L78 91 84 120 72 133 62 111Z M113 83L102 91 96 120 108 133 118 111Z"/>
+          <path data-muscle="triceps" d="M48 80Q39 90 42 106L50 112 57 87Z M132 80Q141 90 138 106L130 112 123 87Z"/>
+          <path data-muscle="glutes" d="M72 135Q90 128 108 135L111 151Q101 160 90 156 79 160 69 151Z"/>
+          <path data-muscle="hamstrings" d="M69 157L86 158 81 188 69 198 63 185Z M94 158L111 157 117 185 111 198 99 188Z"/>
+          <path data-muscle="calves" d="M68 201L81 202 78 238 67 251 63 242Z M99 202L112 201 117 242 113 251 102 238Z"/>
+        </g>
+      </svg>
+    </div>
+  </template>
+  <script src="/static/app.js?v=4"></script>
 </body>
 </html>

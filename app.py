@@ -15,7 +15,7 @@ from flask import Flask, g, jsonify, render_template, request
 load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE = Path(os.getenv("DATABASE_PATH", BASE_DIR / "gymtracker.db"))
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 MAX_INIT_DATA_AGE = int(os.getenv("MAX_INIT_DATA_AGE", "86400"))
 app = Flask(__name__)
 
@@ -149,33 +149,43 @@ def ensure_database():
 def authenticated_user():
     """Validate Telegram's raw initData using the Bot API HMAC scheme."""
     if not BOT_TOKEN:
+        app.logger.error("Telegram auth rejected: server_bot_token_missing")
         return None, ("Server authentication is not configured", 503)
     raw = request.headers.get("X-Telegram-Init-Data", "")
     if not raw or len(raw) > 16_384:
-        return None, ("Telegram authentication required", 401)
+        app.logger.warning("Telegram auth rejected: init_data_missing_or_too_large")
+        return None, ("Открой GymTracker кнопкой внутри Telegram.", 401)
     try:
         pairs = parse_qsl(raw, keep_blank_values=True, strict_parsing=True)
         data = dict(pairs)
         if len(data) != len(pairs) or "hash" not in data:
-            raise ValueError("invalid fields")
+            app.logger.warning("Telegram auth rejected: malformed_init_data")
+            return None, ("Telegram прислал некорректные данные. Закрой Mini App и открой её заново из бота.", 401)
         received_hash = data.pop("hash")
         data.pop("signature", None)
         check_string = "\n".join(f"{key}={value}" for key, value in sorted(data.items()))
         secret_key = hmac.new(BOT_TOKEN.encode(), b"WebAppData", hashlib.sha256).digest()
         expected_hash = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected_hash, received_hash):
-            raise ValueError("invalid signature")
+            app.logger.warning("Telegram auth rejected: signature_mismatch_check_render_bot_token")
+            return None, ("Подпись Telegram не совпала. Проверь BOT_TOKEN в Render: нужен токен именно этого бота.", 401)
         auth_date = int(data["auth_date"])
         now = int(time.time())
-        if auth_date > now + 60 or now - auth_date > MAX_INIT_DATA_AGE:
-            raise ValueError("expired authentication")
+        if auth_date > now + 60:
+            app.logger.warning("Telegram auth rejected: auth_date_in_future")
+            return None, ("Время авторизации Telegram некорректно. Перезапусти Mini App.", 401)
+        if now - auth_date > MAX_INIT_DATA_AGE:
+            app.logger.warning("Telegram auth rejected: auth_data_expired")
+            return None, ("Данные авторизации устарели. Закрой Mini App и снова открой её через бота.", 401)
         user = json.loads(data["user"])
         user_id = user.get("id")
         if not isinstance(user_id, (int, str)) or not str(user_id).isdigit():
-            raise ValueError("invalid user")
+            app.logger.warning("Telegram auth rejected: invalid_user_field")
+            return None, ("Telegram не передал данные пользователя. Открой Mini App через бота.", 401)
         g.telegram_user = user
         return str(user_id), None
     except (ValueError, KeyError, TypeError, json.JSONDecodeError):
+        app.logger.warning("Telegram auth rejected: malformed_or_incomplete_init_data")
         return None, ("Invalid or expired Telegram authentication", 401)
 
 

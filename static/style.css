@@ -42,3 +42,37 @@
 .anatomy .body-figure{width:94px;height:176px}
 .anatomy .body-figure.back{margin-left:-19px}
 @media(max-width:380px){.anatomy .category-figure{width:150px}.anatomy .body-figure{width:76px}}
+
+/* Exercise-specific movement art and single-exercise logging view. */
+.library-exercise-visual{position:relative;background:radial-gradient(ellipse at 50% 45%,#322645,#171321 72%)}
+.exercise-artwork,.exercise-art-pair{display:flex;width:100%;height:100%;align-items:center;justify-content:center;gap:2px;overflow:hidden}
+.exercise-artwork img{width:100%;height:100%;object-fit:contain}
+.exercise-art-pair img{width:50%;height:100%;object-fit:contain}
+.exercise-art-fallback{display:grid;place-items:center;width:100%;height:100%;overflow:hidden}
+.exercise-art-fallback .category-figure{transform:scale(.82)}
+.selected-exercise{display:block;padding:14px;border-color:#51376c;background:linear-gradient(150deg,#231a31,#171321)}
+.detail-back{margin-bottom:10px}
+.exercise-detail-hero{display:grid;grid-template-columns:minmax(130px, .85fr) 1.15fr;gap:14px;align-items:center}
+.exercise-detail-image{height:176px;overflow:hidden;border:1px solid #3d304e;border-radius:15px;background:radial-gradient(ellipse at 50% 45%,#352747,#15111f 75%)}
+.exercise-detail-image .exercise-art-pair img{width:50%;height:100%;object-fit:contain}
+.exercise-detail-copy h3{font:800 20px/1.18 Manrope,sans-serif;margin:0 0 8px}
+.exercise-detail-copy .muted{line-height:1.45}
+.exercise-log-fields{margin-top:18px;padding-top:15px;border-top:1px solid #382c49}
+.exercise-log-fields h4{font:700 16px Manrope,sans-serif;margin:0 0 12px}
+.date-time-fields{display:grid;grid-template-columns:1.3fr 1fr;gap:10px}
+.date-time-fields input{display:block;margin-top:6px;color-scheme:dark}
+.sets-title{margin:17px 0 8px;align-items:center}
+.sets-title h3{font:700 15px Manrope,sans-serif;margin:0}
+.add-set-inline{width:30px;height:30px;border:1px solid #594571;border-radius:50%;background:#2a2037;color:#d3baff;font-size:18px;line-height:1;cursor:pointer}
+.detail-sets .set-row{grid-template-columns:30px 1fr 1fr 25px}
+.detail-notes-label{margin-top:17px}
+.detail-notes-label textarea{display:block;width:100%;resize:vertical;margin-top:7px;padding:12px;border:1px solid #3a3049;border-radius:11px;background:#100d18;color:#f5efff;font:inherit;outline:none}
+.detail-notes-label textarea:focus{border-color:#a879ff;box-shadow:0 0 0 3px #a879ff22}
+.superset-toggle{display:flex;align-items:center;gap:10px;margin:14px 0;color:#d4c9e2;font-size:13px}
+.superset-toggle input{width:19px;height:19px;accent-color:#a879ff}
+.finish-exercise{margin:7px 0 0}
+.selected-exercise>.field-label,.selected-exercise>select{margin-top:17px}
+.app-credit{padding:20px 0 12px;text-align:center;font-size:10px}
+.app-credit a{color:#a99bb8}
+.history-exercise small{color:var(--muted);line-height:1.45}
+@media(max-width:380px){.exercise-detail-hero{grid-template-columns:116px 1fr;gap:10px}.exercise-detail-image{height:148px}.exercise-detail-copy h3{font-size:17px}}

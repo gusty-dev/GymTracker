@@ -190,6 +190,7 @@ def init_db():
             user_id TEXT PRIMARY KEY,
             name TEXT NOT NULL DEFAULT '',
             gender TEXT NOT NULL DEFAULT '',
+            age INTEGER,
             weight_kg REAL,
             height_cm REAL,
             target_weight_kg REAL,
@@ -210,6 +211,7 @@ def init_db():
     for column, definition in (
         ("name", "TEXT NOT NULL DEFAULT ''"),
         ("gender", "TEXT NOT NULL DEFAULT ''"),
+        ("age", "INTEGER"),
         ("target_weight_kg", "REAL"),
     ):
         if column not in existing:
@@ -407,7 +409,7 @@ def get_profile():
                (user_id, str(telegram_user.get("first_name", ""))[:80]))
     db.commit()
     row = db.execute(
-        "SELECT name, gender, weight_kg, height_cm, target_weight_kg, goal FROM profiles WHERE user_id = ?", (user_id,)
+        "SELECT name, gender, age, weight_kg, height_cm, target_weight_kg, goal FROM profiles WHERE user_id = ?", (user_id,)
     ).fetchone()
     return jsonify({
         "first_name": telegram_user.get("first_name", ""),
@@ -415,6 +417,7 @@ def get_profile():
         "username": telegram_user.get("username", ""),
         "name": row["name"],
         "gender": row["gender"],
+        "age": row["age"],
         "weight_kg": row["weight_kg"] if row else None,
         "height_cm": row["height_cm"] if row else None,
         "target_weight_kg": row["target_weight_kg"] if row else None,
@@ -431,12 +434,15 @@ def update_profile():
     try:
         name = str(payload.get("name", "")).strip()
         gender = str(payload.get("gender", "")).strip()
+        age = int(payload.get("age")) if payload.get("age") not in (None, "") else None
         weight = float(payload["weight_kg"]) if payload.get("weight_kg") not in (None, "") else None
         height = float(payload["height_cm"]) if payload.get("height_cm") not in (None, "") else None
         target_weight = float(payload["target_weight_kg"]) if payload.get("target_weight_kg") not in (None, "") else None
         goal = str(payload.get("goal", "")).strip()[:200]
         if not name or len(name) > 80 or gender not in ("male", "female"):
             return jsonify(error="Укажи имя и выбери пол."), 400
+        if age is None or not 13 <= age <= 100:
+            return jsonify(error="Укажи возраст от 13 до 100 лет."), 400
         if weight is not None and (not math.isfinite(weight) or not 20 <= weight <= 500):
             raise ValueError
         if height is not None and (not math.isfinite(height) or not 80 <= height <= 250):
@@ -446,17 +452,18 @@ def update_profile():
     except (ValueError, TypeError, OverflowError):
         return jsonify(error="Проверь вес и рост."), 400
     get_db().execute("""
-        INSERT INTO profiles(user_id, name, gender, weight_kg, height_cm, target_weight_kg, goal, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO profiles(user_id, name, gender, age, weight_kg, height_cm, target_weight_kg, goal, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(user_id) DO UPDATE SET
             name = excluded.name,
             gender = excluded.gender,
+            age = excluded.age,
             weight_kg = excluded.weight_kg,
             height_cm = excluded.height_cm,
             target_weight_kg = excluded.target_weight_kg,
             goal = excluded.goal,
             updated_at = CURRENT_TIMESTAMP
-    """, (user_id, name, gender, weight, height, target_weight, goal))
+    """, (user_id, name, gender, age, weight, height, target_weight, goal))
     get_db().commit()
     return jsonify(ok=True)
 
@@ -471,31 +478,49 @@ def calculate_nutrition():
         activity = int(payload.get("activity"))
     except (TypeError, ValueError):
         return jsonify(error="Выбери частоту тренировок."), 400
-    factors = {1: 1.4, 2: 1.6, 3: 1.8}
-    if activity not in factors:
+    if activity not in (1, 2, 3):
         return jsonify(error="Выбери частоту тренировок."), 400
     row = get_db().execute(
-        "SELECT gender, weight_kg, height_cm, target_weight_kg FROM profiles WHERE user_id = ?",
+        "SELECT gender, age, weight_kg, height_cm, target_weight_kg FROM profiles WHERE user_id = ?",
         (user_id,),
     ).fetchone()
-    if not row or row["weight_kg"] is None or row["height_cm"] is None:
-        return jsonify(error="Сначала укажи вес и рост в профиле."), 400
+    if not row or row["age"] is None or row["weight_kg"] is None or row["height_cm"] is None:
+        return jsonify(error="Сначала укажи возраст, вес и рост в профиле."), 400
     weight, height = row["weight_kg"], row["height_cm"]
-    # Weight and height based estimate; activity multiplier represents total daily energy needs.
-    bmr = (10 * weight + 6.25 * height - 5 * 30 + (5 if row["gender"] == "male" else -161))
-    calories = bmr * factors[activity]
+    age = row["age"]
+    if age < 19:
+        # National Academies EER equation for ages 9–18; training frequency approximates PA class.
+        pa = ({1: 1.13, 2: 1.26, 3: 1.42} if row["gender"] == "male"
+              else {1: 1.16, 2: 1.31, 3: 1.56})[activity]
+        if row["gender"] == "male":
+            calories = 88.5 - 61.9 * age + pa * (26.7 * weight + 903 * (height / 100)) + 25
+        else:
+            calories = 135.3 - 30.8 * age + pa * (10 * weight + 934 * (height / 100)) + 25
+    else:
+        factors = {1: 1.4, 2: 1.6, 3: 1.8}
+        bmr = 10 * weight + 6.25 * height - 5 * age + (5 if row["gender"] == "male" else -161)
+        calories = bmr * factors[activity]
     target = row["target_weight_kg"]
     goal = "поддержание"
     if target is not None and target < weight:
-        calories *= 0.85
         goal = "снижение веса"
+        if age >= 19:
+            calories *= 0.85
     elif target is not None and target > weight:
-        calories *= 1.10
         goal = "набор веса"
+        if age >= 19:
+            calories *= 1.10
     protein = round(weight * 1.8)
     fat = round(weight * 0.8)
     carbs = max(0, round((calories - protein * 4 - fat * 9) / 4))
-    return jsonify(calories=round(calories), protein_g=protein, fat_g=fat, carbs_g=carbs, goal=goal)
+    macro_calories = {"protein": protein * 4, "fat": fat * 9, "carbs": carbs * 4}
+    total_macro_calories = sum(macro_calories.values()) or 1
+    return jsonify(
+        calories=round(calories), protein_g=protein, fat_g=fat, carbs_g=carbs, goal=goal,
+        protein_pct=round(macro_calories["protein"] / total_macro_calories * 100),
+        fat_pct=round(macro_calories["fat"] / total_macro_calories * 100),
+        carbs_pct=round(macro_calories["carbs"] / total_macro_calories * 100),
+    )
 
 
 @app.get("/api/workouts")

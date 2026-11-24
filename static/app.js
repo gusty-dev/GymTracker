@@ -349,14 +349,20 @@ async function loadProfile() {
     const profile = await api("/api/profile");
     const name = profile.name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Профиль Telegram";
     document.querySelector("#profile-name").textContent = name;
-    document.querySelector("#profile-username").textContent = profile.username ? `@${profile.username}` : "Личные данные видны только тебе";
+    document.querySelector("#profile-username").textContent = `${profile.age ? `Возраст ${profile.age}` : "Возраст не указан"}${profile.username ? ` · @${profile.username}` : ""}`;
     document.querySelector("#profile-avatar").textContent = (profile.first_name?.[0] || "G").toUpperCase();
     document.querySelector("#profile-display-name").value = profile.name || "";
     document.querySelector("#profile-gender").value = profile.gender || "";
+    document.querySelector("#profile-age").value = profile.age ?? "";
     document.querySelector("#profile-weight").value = profile.weight_kg ?? "";
     document.querySelector("#profile-height").value = profile.height_cm ?? "";
     document.querySelector("#profile-target-weight").value = profile.target_weight_kg ?? "";
-    if (!profile.gender || !profile.name) {
+    document.querySelector("#overview-age").textContent = profile.age ? `${profile.age} лет` : "—";
+    document.querySelector("#overview-height").textContent = profile.height_cm ? `${profile.height_cm} см` : "—";
+    document.querySelector("#overview-gender").textContent = profile.gender === "male" ? "Мужской" : profile.gender === "female" ? "Женский" : "—";
+    document.querySelector("#overview-weight").textContent = profile.weight_kg ? `${Number(profile.weight_kg).toFixed(1)} кг` : "—";
+    document.querySelector("#overview-target").textContent = profile.target_weight_kg ? `${Number(profile.target_weight_kg).toFixed(1)} кг` : "—";
+    if (!profile.gender || !profile.name || !profile.age) {
       onboardingComplete = false;
       document.querySelectorAll(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.tab === "profile"));
       document.querySelectorAll(".tab-panel").forEach((panel) => { panel.hidden = panel.dataset.panel !== "profile"; panel.classList.toggle("active", panel.dataset.panel === "profile"); });
@@ -372,6 +378,7 @@ document.querySelector("#profile-form").addEventListener("submit", async (event)
     await api("/api/profile", { method: "PUT", body: JSON.stringify({
       name: document.querySelector("#profile-display-name").value,
       gender: document.querySelector("#profile-gender").value,
+      age: document.querySelector("#profile-age").value,
       weight_kg: document.querySelector("#profile-weight").value,
       height_cm: document.querySelector("#profile-height").value,
       target_weight_kg: document.querySelector("#profile-target-weight").value,
@@ -383,11 +390,17 @@ document.querySelector("#profile-form").addEventListener("submit", async (event)
 
 document.querySelector("#calculate-nutrition").addEventListener("click", async () => {
   const result = document.querySelector("#nutrition-result");
-  result.textContent = "";
+    result.hidden = true;
   try {
     const data = await api("/api/nutrition", { method: "POST", body: JSON.stringify({ activity: document.querySelector("#nutrition-activity").value }) });
-    result.textContent = data.goal + ": " + data.calories + " ккал · белки " + data.protein_g + " г · жиры " + data.fat_g + " г · углеводы " + data.carbs_g + " г в день.";
-  } catch (error) { result.textContent = error.message; }
+    const rows = [
+      ["Белки", data.protein_g, data.protein_pct],
+      ["Жиры", data.fat_g, data.fat_pct],
+      ["Углеводы", data.carbs_g, data.carbs_pct],
+    ];
+    result.innerHTML = `<h3>План питания</h3><p class="nutrition-goal">${data.goal === "набор веса" ? "Для набора массы" : data.goal === "снижение веса" ? "Для снижения веса" : "Для поддержания веса"} на основе ваших данных.</p><strong class="nutrition-calories">${Number(data.calories).toLocaleString("ru-RU")} ккал</strong><div class="nutrition-macros">${rows.map(([label, grams, percent]) => `<div class="macro-row"><div class="macro-label"><span>${label}</span><span>${grams} г · ${percent}%</span></div><div class="macro-track"><i style="width:${percent}%"></i></div></div>`).join("")}</div>`;
+    result.hidden = false;
+  } catch (error) { result.innerHTML = `<p class="nutrition-error">${escapeHtml(error.message)}</p>`; result.hidden = false; }
 });
 
 function addSet(container, reps = "", weight = "") {

@@ -67,10 +67,21 @@
     <section class="tab-panel" id="tab-profile" data-panel="profile" hidden>
       <div class="page-heading"><div><p class="eyebrow">МОИ ДАННЫЕ</p><h2>Профиль</h2></div></div>
       <article class="panel-card profile-card"><div class="profile-avatar" id="profile-avatar">G</div><div><h3 id="profile-name">Профиль Telegram</h3><p class="muted" id="profile-username"></p></div></article>
+      <article class="panel-card profile-overview">
+        <h3>Общая информация</h3>
+        <div class="profile-overview-grid">
+          <div><span>Возраст</span><strong id="overview-age">—</strong></div>
+          <div><span>Рост</span><strong id="overview-height">—</strong></div>
+          <div><span>Пол</span><strong id="overview-gender">—</strong></div>
+          <div><span>Текущий вес</span><strong id="overview-weight">—</strong></div>
+          <div><span>Целевой вес</span><strong id="overview-target">—</strong></div>
+        </div>
+      </article>
       <form id="profile-form" class="panel-card profile-form">
         <h3>Личные показатели</h3>
         <label class="field-label" for="profile-display-name">Имя<input id="profile-display-name" maxlength="80" required placeholder="Как к тебе обращаться"></label>
         <label class="field-label" for="profile-gender">Пол<select id="profile-gender" required><option value="">Выбери пол</option><option value="female">Женский</option><option value="male">Мужской</option></select></label>
+        <label class="field-label" for="profile-age">Возраст<input id="profile-age" type="number" min="13" max="100" step="1" required placeholder="Например, 25"></label>
         <label class="field-label" for="profile-weight">Вес, кг<input id="profile-weight" type="number" min="20" max="500" step="0.1" placeholder="Например, 75"></label>
         <label class="field-label" for="profile-height">Рост, см<input id="profile-height" type="number" min="80" max="250" step="1" placeholder="Например, 180"></label>
         <label class="field-label" for="profile-target-weight">Желаемый вес, кг<input id="profile-target-weight" type="number" min="20" max="500" step="0.1" placeholder="Например, 70"></label>
@@ -81,7 +92,7 @@
         <h3>Расчёт КБЖУ</h3>
         <label class="field-label" for="nutrition-activity">Тренировок в неделю<select id="nutrition-activity"><option value="1">1–2 раза</option><option value="2">3–4 раза</option><option value="3">5–6 раз</option></select></label>
         <button type="button" id="calculate-nutrition" class="primary">Рассчитать КБЖУ</button>
-        <p id="nutrition-result" class="inline-status" role="status"></p>
+        <div id="nutrition-result" class="nutrition-result" role="status" hidden></div>
       </article>
     </section>
   </main>

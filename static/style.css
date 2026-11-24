@@ -82,3 +82,28 @@
 
 .profile-overview>h3{margin-bottom:14px}.profile-overview-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.profile-overview-grid>div{display:flex;flex-direction:column;justify-content:center;gap:8px;min-height:94px;padding:14px;border:1px solid #393440;border-radius:18px;background:linear-gradient(145deg,#242329,#1b1a20)}.profile-overview-grid span{color:#b8acc8;font-size:12px}.profile-overview-grid strong{font:700 18px Manrope,sans-serif;overflow-wrap:anywhere}.nutrition-result{margin-top:15px;padding:20px;border:1px solid #3d3943;border-radius:22px;background:linear-gradient(145deg,#242329,#1b1a20)}.nutrition-result h3{margin:0;font:800 22px Manrope,sans-serif}.nutrition-goal{margin:5px 0 17px;color:#b8acc8;font-size:14px}.nutrition-calories{display:block;margin:0 0 19px;font:800 clamp(32px,9vw,48px) Manrope,sans-serif;letter-spacing:-.04em}.nutrition-macros{display:grid;gap:15px}.macro-label{display:flex;justify-content:space-between;gap:10px;margin-bottom:7px;font-size:14px}.macro-label span:last-child{color:#b8acc8;white-space:nowrap}.macro-track{height:10px;border-radius:10px;background:#343238;overflow:hidden}.macro-track i{display:block;height:100%;min-width:5px;border-radius:inherit;background:#c8c6ca}.nutrition-error{margin:0;color:#ff8797;font-size:13px}
 
+
+/* Distinct GymTracker profile cards */
+.profile-overview{position:relative;overflow:hidden;padding:18px;border:1px solid #4d3b66;border-radius:20px;background:radial-gradient(ellipse at 100% 0%,#50366a66,transparent 48%),linear-gradient(155deg,#231a31,#17131f 78%)}
+.profile-overview:before{content:'';position:absolute;left:0;top:18px;bottom:18px;width:3px;border-radius:0 4px 4px 0;background:linear-gradient(#d4b4ff,#8050b8)}
+.profile-overview>h3{margin:0 0 13px 5px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#d8c2f1}
+.profile-overview-grid{grid-template-columns:1fr;gap:0}
+.profile-overview-grid>div{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;min-height:58px;padding:9px 5px 9px 13px;border:0;border-bottom:1px solid #ffffff12;border-radius:0;background:transparent}
+.profile-overview-grid>div:last-child{border-bottom:0}
+.profile-overview-grid span{font-size:12px;color:#a99bb8}
+.profile-overview-grid strong{font:700 15px Manrope,sans-serif;color:#f2eaff;text-align:right}
+.nutrition-panel{padding:10px;border:1px solid #4d3b66;border-radius:20px;background:linear-gradient(145deg,#251b34,#17131f)}
+.nutrition-result{position:relative;margin:0;padding:17px;border:1px solid #60477c;border-radius:15px;background:linear-gradient(135deg,#362448 0%,#281d37 54%,#211a2c 100%);overflow:hidden}
+.nutrition-result:after{content:'';position:absolute;right:-33px;top:-44px;width:116px;height:116px;border:1px solid #c69aff2b;border-radius:50%;box-shadow:0 0 0 14px #c69aff08,0 0 0 30px #c69aff06;pointer-events:none}
+.nutrition-result h3{position:relative;z-index:1;font-size:16px;letter-spacing:-.02em}
+.nutrition-goal{position:relative;z-index:1;display:inline-block;margin:7px 0 13px;padding:5px 9px;border:1px solid #b58aff35;border-radius:999px;background:#b58aff12;color:#d5b9f4;font-size:10px}
+.nutrition-calories{position:relative;z-index:1;margin:0 0 14px;padding:12px 13px;border:1px solid #ffffff12;border-radius:12px;background:#120e1b80;color:#f7eeff;font-size:32px;letter-spacing:-.045em}
+.nutrition-macros{position:relative;z-index:1;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.macro-row{min-width:0;padding:10px 8px 9px;border:1px solid #ffffff12;border-radius:11px;background:#17121f99}
+.macro-label{display:flex;flex-direction:column;gap:5px;margin:0 0 9px;font-size:10px}
+.macro-label span:first-child{color:#d3c4e2}
+.macro-label span:last-child{white-space:normal;color:#f0e7f8;font-size:11px;font-weight:700}
+.macro-track{height:4px;background:#ffffff18}
+.macro-track i{background:linear-gradient(90deg,#ad7af0,#e0c4ff)}
+@media(max-width:360px){.macro-row{padding:8px 6px}.macro-label span:first-child{font-size:9px}.macro-label span:last-child{font-size:10px}.nutrition-calories{font-size:28px}}
+

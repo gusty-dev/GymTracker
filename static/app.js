@@ -12,6 +12,7 @@ let currentCategory = null;
 let selectedExercise = null;
 let planTargetDay = 0;
 let onboardingComplete = true;
+let profileEditMode = false;
 
 const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
 const targetLabels = { chest: "грудь", shoulders: "плечи", triceps: "трицепс", biceps: "бицепс", abs: "пресс", quads: "квадрицепсы", calves: "икры", upperback: "верх спины", lats: "широчайшие", glutes: "ягодицы", hamstrings: "бицепс бедра" };
@@ -354,6 +355,7 @@ async function loadProfile() {
     document.querySelector("#profile-display-name").value = profile.name || "";
     document.querySelector("#profile-gender").value = profile.gender || "";
     document.querySelector("#profile-age").value = profile.age ?? "";
+    document.querySelector("#nutrition-activity").value = profile.activity_level ?? "";
     document.querySelector("#profile-weight").value = profile.weight_kg ?? "";
     document.querySelector("#profile-height").value = profile.height_cm ?? "";
     document.querySelector("#profile-target-weight").value = profile.target_weight_kg ?? "";
@@ -362,14 +364,33 @@ async function loadProfile() {
     document.querySelector("#overview-gender").textContent = profile.gender === "male" ? "Мужской" : profile.gender === "female" ? "Женский" : "—";
     document.querySelector("#overview-weight").textContent = profile.weight_kg ? `${Number(profile.weight_kg).toFixed(1)} кг` : "—";
     document.querySelector("#overview-target").textContent = profile.target_weight_kg ? `${Number(profile.target_weight_kg).toFixed(1)} кг` : "—";
-    if (!profile.gender || !profile.name || !profile.age) {
+    const complete = Boolean(profile.gender && profile.name && profile.age && profile.weight_kg && profile.height_cm && profile.activity_level);
+    if (!complete) {
       onboardingComplete = false;
+      profileEditMode = true;
       document.querySelectorAll(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.tab === "profile"));
       document.querySelectorAll(".tab-panel").forEach((panel) => { panel.hidden = panel.dataset.panel !== "profile"; panel.classList.toggle("active", panel.dataset.panel === "profile"); });
-      document.querySelector("#profile-status").textContent = "При первом входе заполни имя и выбери пол.";
-    } else onboardingComplete = true;
+      document.querySelector("#profile-status").textContent = "Заполни данные и выбери уровень активности.";
+    } else {
+      onboardingComplete = true;
+      profileEditMode = false;
+    }
+    setProfileMode(profileEditMode, complete);
+    if (complete) await loadNutrition();
   } catch (error) { showError(error); }
 }
+
+function setProfileMode(editing, complete) {
+  profileEditMode = editing;
+  document.querySelector("#profile-form").hidden = !editing;
+  document.querySelector("#profile-overview").hidden = editing || !complete;
+  document.querySelector("#nutrition-panel").hidden = editing || !complete;
+  document.querySelector("#edit-profile").hidden = !complete || editing;
+  document.querySelector("#cancel-profile-edit").hidden = !complete || !editing;
+}
+
+document.querySelector("#edit-profile").addEventListener("click", () => setProfileMode(true, true));
+document.querySelector("#cancel-profile-edit").addEventListener("click", () => loadProfile());
 
 document.querySelector("#profile-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -379,29 +400,28 @@ document.querySelector("#profile-form").addEventListener("submit", async (event)
       name: document.querySelector("#profile-display-name").value,
       gender: document.querySelector("#profile-gender").value,
       age: document.querySelector("#profile-age").value,
+      activity_level: document.querySelector("#nutrition-activity").value,
       weight_kg: document.querySelector("#profile-weight").value,
       height_cm: document.querySelector("#profile-height").value,
       target_weight_kg: document.querySelector("#profile-target-weight").value,
     }) });
-    message.textContent = "Профиль сохранён.";
     await loadProfile();
+    message.textContent = "Профиль сохранён.";
   } catch (error) { message.textContent = error.message; }
 });
 
-document.querySelector("#calculate-nutrition").addEventListener("click", async () => {
+async function loadNutrition() {
   const result = document.querySelector("#nutrition-result");
-    result.hidden = true;
   try {
-    const data = await api("/api/nutrition", { method: "POST", body: JSON.stringify({ activity: document.querySelector("#nutrition-activity").value }) });
+    const data = await api("/api/nutrition", { method: "POST", body: JSON.stringify({}) });
     const rows = [
       ["Белки", data.protein_g, data.protein_pct],
       ["Жиры", data.fat_g, data.fat_pct],
       ["Углеводы", data.carbs_g, data.carbs_pct],
     ];
     result.innerHTML = `<h3>План питания</h3><p class="nutrition-goal">${data.goal === "набор веса" ? "Для набора массы" : data.goal === "снижение веса" ? "Для снижения веса" : "Для поддержания веса"} на основе ваших данных.</p><strong class="nutrition-calories">${Number(data.calories).toLocaleString("ru-RU")} ккал</strong><div class="nutrition-macros">${rows.map(([label, grams, percent]) => `<div class="macro-row"><div class="macro-label"><span>${label}</span><span>${grams} г · ${percent}%</span></div><div class="macro-track"><i style="width:${percent}%"></i></div></div>`).join("")}</div>`;
-    result.hidden = false;
-  } catch (error) { result.innerHTML = `<p class="nutrition-error">${escapeHtml(error.message)}</p>`; result.hidden = false; }
-});
+  } catch (error) { result.innerHTML = `<p class="nutrition-error">${escapeHtml(error.message)}</p>`; }
+}
 
 function addSet(container, reps = "", weight = "") {
   const row = document.createElement("div");

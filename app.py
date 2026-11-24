@@ -191,6 +191,7 @@ def init_db():
             name TEXT NOT NULL DEFAULT '',
             gender TEXT NOT NULL DEFAULT '',
             age INTEGER,
+            activity_level INTEGER,
             weight_kg REAL,
             height_cm REAL,
             target_weight_kg REAL,
@@ -212,6 +213,7 @@ def init_db():
         ("name", "TEXT NOT NULL DEFAULT ''"),
         ("gender", "TEXT NOT NULL DEFAULT ''"),
         ("age", "INTEGER"),
+        ("activity_level", "INTEGER"),
         ("target_weight_kg", "REAL"),
     ):
         if column not in existing:
@@ -409,7 +411,7 @@ def get_profile():
                (user_id, str(telegram_user.get("first_name", ""))[:80]))
     db.commit()
     row = db.execute(
-        "SELECT name, gender, age, weight_kg, height_cm, target_weight_kg, goal FROM profiles WHERE user_id = ?", (user_id,)
+        "SELECT name, gender, age, activity_level, weight_kg, height_cm, target_weight_kg, goal FROM profiles WHERE user_id = ?", (user_id,)
     ).fetchone()
     return jsonify({
         "first_name": telegram_user.get("first_name", ""),
@@ -418,6 +420,7 @@ def get_profile():
         "name": row["name"],
         "gender": row["gender"],
         "age": row["age"],
+        "activity_level": row["activity_level"],
         "weight_kg": row["weight_kg"] if row else None,
         "height_cm": row["height_cm"] if row else None,
         "target_weight_kg": row["target_weight_kg"] if row else None,
@@ -435,6 +438,7 @@ def update_profile():
         name = str(payload.get("name", "")).strip()
         gender = str(payload.get("gender", "")).strip()
         age = int(payload.get("age")) if payload.get("age") not in (None, "") else None
+        activity_level = int(payload.get("activity_level")) if payload.get("activity_level") not in (None, "") else None
         weight = float(payload["weight_kg"]) if payload.get("weight_kg") not in (None, "") else None
         height = float(payload["height_cm"]) if payload.get("height_cm") not in (None, "") else None
         target_weight = float(payload["target_weight_kg"]) if payload.get("target_weight_kg") not in (None, "") else None
@@ -443,27 +447,30 @@ def update_profile():
             return jsonify(error="Укажи имя и выбери пол."), 400
         if age is None or not 13 <= age <= 100:
             return jsonify(error="Укажи возраст от 13 до 100 лет."), 400
-        if weight is not None and (not math.isfinite(weight) or not 20 <= weight <= 500):
+        if activity_level not in (1, 2, 3):
+            return jsonify(error="Выбери уровень активности."), 400
+        if weight is None or not math.isfinite(weight) or not 20 <= weight <= 500:
             raise ValueError
-        if height is not None and (not math.isfinite(height) or not 80 <= height <= 250):
+        if height is None or not math.isfinite(height) or not 80 <= height <= 250:
             raise ValueError
         if target_weight is not None and (not math.isfinite(target_weight) or not 20 <= target_weight <= 500):
             raise ValueError
     except (ValueError, TypeError, OverflowError):
         return jsonify(error="Проверь вес и рост."), 400
     get_db().execute("""
-        INSERT INTO profiles(user_id, name, gender, age, weight_kg, height_cm, target_weight_kg, goal, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO profiles(user_id, name, gender, age, activity_level, weight_kg, height_cm, target_weight_kg, goal, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(user_id) DO UPDATE SET
             name = excluded.name,
             gender = excluded.gender,
             age = excluded.age,
+            activity_level = excluded.activity_level,
             weight_kg = excluded.weight_kg,
             height_cm = excluded.height_cm,
             target_weight_kg = excluded.target_weight_kg,
             goal = excluded.goal,
             updated_at = CURRENT_TIMESTAMP
-    """, (user_id, name, gender, age, weight, height, target_weight, goal))
+    """, (user_id, name, gender, age, activity_level, weight, height, target_weight, goal))
     get_db().commit()
     return jsonify(ok=True)
 
@@ -473,19 +480,13 @@ def calculate_nutrition():
     user_id, error = authenticated_user()
     if error:
         return jsonify(error=error[0]), error[1]
-    payload = request.get_json(silent=True) or {}
-    try:
-        activity = int(payload.get("activity"))
-    except (TypeError, ValueError):
-        return jsonify(error="Выбери частоту тренировок."), 400
-    if activity not in (1, 2, 3):
-        return jsonify(error="Выбери частоту тренировок."), 400
     row = get_db().execute(
-        "SELECT gender, age, weight_kg, height_cm, target_weight_kg FROM profiles WHERE user_id = ?",
+        "SELECT gender, age, activity_level, weight_kg, height_cm, target_weight_kg FROM profiles WHERE user_id = ?",
         (user_id,),
     ).fetchone()
-    if not row or row["age"] is None or row["weight_kg"] is None or row["height_cm"] is None:
-        return jsonify(error="Сначала укажи возраст, вес и рост в профиле."), 400
+    if not row or row["age"] is None or row["weight_kg"] is None or row["height_cm"] is None or row["activity_level"] not in (1, 2, 3):
+        return jsonify(error="Заполни профиль и выбери уровень активности."), 400
+    activity = row["activity_level"]
     weight, height = row["weight_kg"], row["height_cm"]
     age = row["age"]
     if age < 19:
@@ -517,6 +518,7 @@ def calculate_nutrition():
     total_macro_calories = sum(macro_calories.values()) or 1
     return jsonify(
         calories=round(calories), protein_g=protein, fat_g=fat, carbs_g=carbs, goal=goal,
+        activity_level=activity,
         protein_pct=round(macro_calories["protein"] / total_macro_calories * 100),
         fat_pct=round(macro_calories["fat"] / total_macro_calories * 100),
         carbs_pct=round(macro_calories["carbs"] / total_macro_calories * 100),

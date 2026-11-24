@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#100d18">
   <title>GymTracker</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=5">
+  <link rel="stylesheet" href="/static/style.css?v=6">
 </head>
 <body>
   <main class="app">
@@ -65,9 +65,9 @@
     </section>
 
     <section class="tab-panel" id="tab-profile" data-panel="profile" hidden>
-      <div class="page-heading"><div><p class="eyebrow">МОИ ДАННЫЕ</p><h2>Профиль</h2></div></div>
+      <div class="page-heading"><div><p class="eyebrow">МОИ ДАННЫЕ</p><h2>Профиль</h2></div><button id="edit-profile" type="button" class="edit-profile" aria-label="Изменить профиль" title="Изменить профиль" hidden>✎</button></div>
       <article class="panel-card profile-card"><div class="profile-avatar" id="profile-avatar">G</div><div><h3 id="profile-name">Профиль Telegram</h3><p class="muted" id="profile-username"></p></div></article>
-      <article class="panel-card profile-overview">
+      <article class="panel-card profile-overview" id="profile-overview" hidden>
         <h3>Общая информация</h3>
         <div class="profile-overview-grid">
           <div><span>Возраст</span><strong id="overview-age">—</strong></div>
@@ -82,17 +82,16 @@
         <label class="field-label" for="profile-display-name">Имя<input id="profile-display-name" maxlength="80" required placeholder="Как к тебе обращаться"></label>
         <label class="field-label" for="profile-gender">Пол<select id="profile-gender" required><option value="">Выбери пол</option><option value="female">Женский</option><option value="male">Мужской</option></select></label>
         <label class="field-label" for="profile-age">Возраст<input id="profile-age" type="number" min="13" max="100" step="1" required placeholder="Например, 25"></label>
-        <label class="field-label" for="profile-weight">Вес, кг<input id="profile-weight" type="number" min="20" max="500" step="0.1" placeholder="Например, 75"></label>
-        <label class="field-label" for="profile-height">Рост, см<input id="profile-height" type="number" min="80" max="250" step="1" placeholder="Например, 180"></label>
+        <label class="field-label" for="profile-weight">Вес, кг<input id="profile-weight" type="number" min="20" max="500" step="0.1" required placeholder="Например, 75"></label>
+        <label class="field-label" for="profile-height">Рост, см<input id="profile-height" type="number" min="80" max="250" step="1" required placeholder="Например, 180"></label>
         <label class="field-label" for="profile-target-weight">Желаемый вес, кг<input id="profile-target-weight" type="number" min="20" max="500" step="0.1" placeholder="Например, 70"></label>
+        <label class="field-label" for="nutrition-activity">Уровень активности<select id="nutrition-activity" required><option value="">Выбери уровень активности</option><option value="1">Лёгкий (1–3 тренировки/нед.)</option><option value="2">Умеренный (3–5 тренировок/нед.)</option><option value="3">Активный (6–7 тренировок/нед.)</option></select></label>
         <button type="submit" class="primary">Сохранить профиль</button>
+        <button type="button" id="cancel-profile-edit" class="secondary cancel-profile-edit" hidden>Отмена</button>
         <p id="profile-status" class="inline-status" role="status"></p>
       </form>
-      <article class="panel-card profile-form">
-        <h3>Расчёт КБЖУ</h3>
-        <label class="field-label" for="nutrition-activity">Тренировок в неделю<select id="nutrition-activity"><option value="1">1–2 раза</option><option value="2">3–4 раза</option><option value="3">5–6 раз</option></select></label>
-        <button type="button" id="calculate-nutrition" class="primary">Рассчитать КБЖУ</button>
-        <div id="nutrition-result" class="nutrition-result" role="status" hidden></div>
+      <article class="panel-card nutrition-panel" id="nutrition-panel" hidden>
+        <div id="nutrition-result" class="nutrition-result" role="status"></div>
       </article>
     </section>
   </main>
@@ -176,6 +175,6 @@
       </svg>
     </div>
   </template>
-  <script src="/static/app.js?v=5"></script>
+  <script src="/static/app.js?v=6"></script>
 </body>
 </html>

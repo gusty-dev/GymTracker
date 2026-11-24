@@ -76,3 +76,6 @@
 .app-credit a{color:#a99bb8}
 .history-exercise small{color:var(--muted);line-height:1.45}
 @media(max-width:380px){.exercise-detail-hero{grid-template-columns:116px 1fr;gap:10px}.exercise-detail-image{height:148px}.exercise-detail-copy h3{font-size:17px}}
+
+.profile-form select{display:block;width:100%;margin-top:7px;padding:12px;color:#f5efff;background:#100d18;border:1px solid #3a3049;border-radius:11px;font:inherit}
+

@@ -69,12 +69,20 @@
       <article class="panel-card profile-card"><div class="profile-avatar" id="profile-avatar">G</div><div><h3 id="profile-name">Профиль Telegram</h3><p class="muted" id="profile-username"></p></div></article>
       <form id="profile-form" class="panel-card profile-form">
         <h3>Личные показатели</h3>
+        <label class="field-label" for="profile-display-name">Имя<input id="profile-display-name" maxlength="80" required placeholder="Как к тебе обращаться"></label>
+        <label class="field-label" for="profile-gender">Пол<select id="profile-gender" required><option value="">Выбери пол</option><option value="female">Женский</option><option value="male">Мужской</option></select></label>
         <label class="field-label" for="profile-weight">Вес, кг<input id="profile-weight" type="number" min="20" max="500" step="0.1" placeholder="Например, 75"></label>
         <label class="field-label" for="profile-height">Рост, см<input id="profile-height" type="number" min="80" max="250" step="1" placeholder="Например, 180"></label>
-        <label class="field-label" for="profile-goal">Цель<input id="profile-goal" maxlength="200" placeholder="Например, стать сильнее"></label>
+        <label class="field-label" for="profile-target-weight">Желаемый вес, кг<input id="profile-target-weight" type="number" min="20" max="500" step="0.1" placeholder="Например, 70"></label>
         <button type="submit" class="primary">Сохранить профиль</button>
         <p id="profile-status" class="inline-status" role="status"></p>
       </form>
+      <article class="panel-card profile-form">
+        <h3>Расчёт КБЖУ</h3>
+        <label class="field-label" for="nutrition-activity">Тренировок в неделю<select id="nutrition-activity"><option value="1">1–2 раза</option><option value="2">3–4 раза</option><option value="3">5–6 раз</option></select></label>
+        <button type="button" id="calculate-nutrition" class="primary">Рассчитать КБЖУ</button>
+        <p id="nutrition-result" class="inline-status" role="status"></p>
+      </article>
     </section>
   </main>
 

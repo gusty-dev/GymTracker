@@ -11,6 +11,7 @@ let weeklyPlan = [];
 let currentCategory = null;
 let selectedExercise = null;
 let planTargetDay = 0;
+let onboardingComplete = true;
 
 const weekdays = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
 const targetLabels = { chest: "грудь", shoulders: "плечи", triceps: "трицепс", biceps: "бицепс", abs: "пресс", quads: "квадрицепсы", calves: "икры", upperback: "верх спины", lats: "широчайшие", glutes: "ягодицы", hamstrings: "бицепс бедра" };
@@ -236,6 +237,7 @@ document.querySelector("#add-to-plan").addEventListener("click", async () => {
 });
 
 function switchTab(tabName) {
+  if (!onboardingComplete && tabName !== "profile") tabName = "profile";
   document.querySelectorAll(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.tab === tabName));
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     const active = panel.dataset.panel === tabName;
@@ -345,13 +347,21 @@ function renderStatistics(workouts) {
 async function loadProfile() {
   try {
     const profile = await api("/api/profile");
-    const name = [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Профиль Telegram";
+    const name = profile.name || [profile.first_name, profile.last_name].filter(Boolean).join(" ") || "Профиль Telegram";
     document.querySelector("#profile-name").textContent = name;
     document.querySelector("#profile-username").textContent = profile.username ? `@${profile.username}` : "Личные данные видны только тебе";
     document.querySelector("#profile-avatar").textContent = (profile.first_name?.[0] || "G").toUpperCase();
+    document.querySelector("#profile-display-name").value = profile.name || "";
+    document.querySelector("#profile-gender").value = profile.gender || "";
     document.querySelector("#profile-weight").value = profile.weight_kg ?? "";
     document.querySelector("#profile-height").value = profile.height_cm ?? "";
-    document.querySelector("#profile-goal").value = profile.goal || "";
+    document.querySelector("#profile-target-weight").value = profile.target_weight_kg ?? "";
+    if (!profile.gender || !profile.name) {
+      onboardingComplete = false;
+      document.querySelectorAll(".nav-item").forEach((button) => button.classList.toggle("active", button.dataset.tab === "profile"));
+      document.querySelectorAll(".tab-panel").forEach((panel) => { panel.hidden = panel.dataset.panel !== "profile"; panel.classList.toggle("active", panel.dataset.panel === "profile"); });
+      document.querySelector("#profile-status").textContent = "При первом входе заполни имя и выбери пол.";
+    } else onboardingComplete = true;
   } catch (error) { showError(error); }
 }
 
@@ -360,12 +370,24 @@ document.querySelector("#profile-form").addEventListener("submit", async (event)
   const message = document.querySelector("#profile-status");
   try {
     await api("/api/profile", { method: "PUT", body: JSON.stringify({
+      name: document.querySelector("#profile-display-name").value,
+      gender: document.querySelector("#profile-gender").value,
       weight_kg: document.querySelector("#profile-weight").value,
       height_cm: document.querySelector("#profile-height").value,
-      goal: document.querySelector("#profile-goal").value,
+      target_weight_kg: document.querySelector("#profile-target-weight").value,
     }) });
     message.textContent = "Профиль сохранён.";
+    await loadProfile();
   } catch (error) { message.textContent = error.message; }
+});
+
+document.querySelector("#calculate-nutrition").addEventListener("click", async () => {
+  const result = document.querySelector("#nutrition-result");
+  result.textContent = "";
+  try {
+    const data = await api("/api/nutrition", { method: "POST", body: JSON.stringify({ activity: document.querySelector("#nutrition-activity").value }) });
+    result.textContent = data.goal + ": " + data.calories + " ккал · белки " + data.protein_g + " г · жиры " + data.fat_g + " г · углеводы " + data.carbs_g + " г в день.";
+  } catch (error) { result.textContent = error.message; }
 });
 
 function addSet(container, reps = "", weight = "") {
@@ -471,6 +493,7 @@ async function initialize() {
   renderCategories();
   const date = new Date();
   planTargetDay = (date.getDay() + 6) % 7;
+  await loadProfile();
   try { await loadExerciseCatalog(); } catch (error) { showError(error); }
 }
 

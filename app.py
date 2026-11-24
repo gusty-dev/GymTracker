@@ -188,8 +188,11 @@ def init_db():
             ON planned_exercises(user_id, weekday, position);
         CREATE TABLE IF NOT EXISTS profiles (
             user_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL DEFAULT '',
+            gender TEXT NOT NULL DEFAULT '',
             weight_kg REAL,
             height_cm REAL,
+            target_weight_kg REAL,
             goal TEXT NOT NULL DEFAULT '',
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
@@ -203,6 +206,14 @@ def init_db():
         existing = {row["name"] for row in db.execute(f"PRAGMA table_info({table})")}
         if column not in existing:
             db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    existing = {row["name"] for row in db.execute("PRAGMA table_info(profiles)")}
+    for column, definition in (
+        ("name", "TEXT NOT NULL DEFAULT ''"),
+        ("gender", "TEXT NOT NULL DEFAULT ''"),
+        ("target_weight_kg", "REAL"),
+    ):
+        if column not in existing:
+            db.execute(f"ALTER TABLE profiles ADD COLUMN {column} {definition}")
     db.commit()
 
 
@@ -390,16 +401,23 @@ def get_profile():
     user_id, error = authenticated_user()
     if error:
         return jsonify(error=error[0]), error[1]
-    row = get_db().execute(
-        "SELECT weight_kg, height_cm, goal FROM profiles WHERE user_id = ?", (user_id,)
-    ).fetchone()
+    db = get_db()
     telegram_user = getattr(g, "telegram_user", {})
+    db.execute("INSERT OR IGNORE INTO profiles(user_id, name) VALUES (?, ?)",
+               (user_id, str(telegram_user.get("first_name", ""))[:80]))
+    db.commit()
+    row = db.execute(
+        "SELECT name, gender, weight_kg, height_cm, target_weight_kg, goal FROM profiles WHERE user_id = ?", (user_id,)
+    ).fetchone()
     return jsonify({
         "first_name": telegram_user.get("first_name", ""),
         "last_name": telegram_user.get("last_name", ""),
         "username": telegram_user.get("username", ""),
+        "name": row["name"],
+        "gender": row["gender"],
         "weight_kg": row["weight_kg"] if row else None,
         "height_cm": row["height_cm"] if row else None,
+        "target_weight_kg": row["target_weight_kg"] if row else None,
         "goal": row["goal"] if row else "",
     })
 
@@ -411,26 +429,73 @@ def update_profile():
         return jsonify(error=error[0]), error[1]
     payload = request.get_json(silent=True) or {}
     try:
+        name = str(payload.get("name", "")).strip()
+        gender = str(payload.get("gender", "")).strip()
         weight = float(payload["weight_kg"]) if payload.get("weight_kg") not in (None, "") else None
         height = float(payload["height_cm"]) if payload.get("height_cm") not in (None, "") else None
+        target_weight = float(payload["target_weight_kg"]) if payload.get("target_weight_kg") not in (None, "") else None
         goal = str(payload.get("goal", "")).strip()[:200]
+        if not name or len(name) > 80 or gender not in ("male", "female"):
+            return jsonify(error="Укажи имя и выбери пол."), 400
         if weight is not None and (not math.isfinite(weight) or not 20 <= weight <= 500):
             raise ValueError
         if height is not None and (not math.isfinite(height) or not 80 <= height <= 250):
             raise ValueError
+        if target_weight is not None and (not math.isfinite(target_weight) or not 20 <= target_weight <= 500):
+            raise ValueError
     except (ValueError, TypeError, OverflowError):
         return jsonify(error="Проверь вес и рост."), 400
     get_db().execute("""
-        INSERT INTO profiles(user_id, weight_kg, height_cm, goal, updated_at)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO profiles(user_id, name, gender, weight_kg, height_cm, target_weight_kg, goal, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(user_id) DO UPDATE SET
+            name = excluded.name,
+            gender = excluded.gender,
             weight_kg = excluded.weight_kg,
             height_cm = excluded.height_cm,
+            target_weight_kg = excluded.target_weight_kg,
             goal = excluded.goal,
             updated_at = CURRENT_TIMESTAMP
-    """, (user_id, weight, height, goal))
+    """, (user_id, name, gender, weight, height, target_weight, goal))
     get_db().commit()
     return jsonify(ok=True)
+
+
+@app.post("/api/nutrition")
+def calculate_nutrition():
+    user_id, error = authenticated_user()
+    if error:
+        return jsonify(error=error[0]), error[1]
+    payload = request.get_json(silent=True) or {}
+    try:
+        activity = int(payload.get("activity"))
+    except (TypeError, ValueError):
+        return jsonify(error="Выбери частоту тренировок."), 400
+    factors = {1: 1.4, 2: 1.6, 3: 1.8}
+    if activity not in factors:
+        return jsonify(error="Выбери частоту тренировок."), 400
+    row = get_db().execute(
+        "SELECT gender, weight_kg, height_cm, target_weight_kg FROM profiles WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    if not row or row["weight_kg"] is None or row["height_cm"] is None:
+        return jsonify(error="Сначала укажи вес и рост в профиле."), 400
+    weight, height = row["weight_kg"], row["height_cm"]
+    # Weight and height based estimate; activity multiplier represents total daily energy needs.
+    bmr = (10 * weight + 6.25 * height - 5 * 30 + (5 if row["gender"] == "male" else -161))
+    calories = bmr * factors[activity]
+    target = row["target_weight_kg"]
+    goal = "поддержание"
+    if target is not None and target < weight:
+        calories *= 0.85
+        goal = "снижение веса"
+    elif target is not None and target > weight:
+        calories *= 1.10
+        goal = "набор веса"
+    protein = round(weight * 1.8)
+    fat = round(weight * 0.8)
+    carbs = max(0, round((calories - protein * 4 - fat * 9) / 4))
+    return jsonify(calories=round(calories), protein_g=protein, fat_g=fat, carbs_g=carbs, goal=goal)
 
 
 @app.get("/api/workouts")

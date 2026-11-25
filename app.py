@@ -18,6 +18,53 @@ DATABASE = Path(os.getenv("DATABASE_PATH", BASE_DIR / "gymtracker.db"))
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 MAX_INIT_DATA_AGE = int(os.getenv("MAX_INIT_DATA_AGE", "86400"))
 app = Flask(__name__)
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:
+    psycopg = None
+    dict_row = None
+
+DB_INTEGRITY_ERRORS = (sqlite3.IntegrityError,) + ((psycopg.IntegrityError,) if psycopg else ())
+
+
+class PostgresConnection:
+    """Small adapter that lets the existing parameterized SQL work with PostgreSQL."""
+
+    def __init__(self, url):
+        if psycopg is None:
+            raise RuntimeError("Install psycopg to use DATABASE_URL")
+        self.connection = psycopg.connect(
+            url,
+            row_factory=dict_row,
+            prepare_threshold=None,
+            sslmode="require",
+        )
+
+    def execute(self, statement, params=()):
+        ignore_duplicates = statement.lstrip().upper().startswith("INSERT OR IGNORE INTO")
+        statement = statement.replace("INSERT OR IGNORE INTO", "INSERT INTO", 1)
+        statement = statement.replace("?", "%s")
+        if ignore_duplicates:
+            statement = statement.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
+        return self.connection.execute(statement, params)
+
+    def executemany(self, statement, params):
+        return self.connection.cursor().executemany(statement.replace("?", "%s"), params)
+
+    def executescript(self, script):
+        script = script.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+        for statement in script.split(";"):
+            if statement.strip():
+                self.execute(statement)
+
+    def commit(self):
+        self.connection.commit()
+
+    def close(self):
+        self.connection.close()
 
 EXERCISE_CATEGORIES = [
     {"id": "chest", "name": "Грудь", "exercises": [
@@ -133,10 +180,13 @@ def public_exercise(name, muscles, custom=False):
 
 def get_db():
     if "db" not in g:
-        DATABASE.parent.mkdir(parents=True, exist_ok=True)
-        g.db = sqlite3.connect(DATABASE)
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
+        if DATABASE_URL:
+            g.db = PostgresConnection(DATABASE_URL)
+        else:
+            DATABASE.parent.mkdir(parents=True, exist_ok=True)
+            g.db = sqlite3.connect(DATABASE)
+            g.db.row_factory = sqlite3.Row
+            g.db.execute("PRAGMA foreign_keys = ON")
     return g.db
 
 
@@ -204,16 +254,22 @@ def init_db():
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
     """)
-    # Add fields used by the exercise detail logger to existing SQLite databases.
+    # Add fields used by the exercise detail logger to existing databases.
     for table, column, definition in (
         ("workouts", "workout_time", "TEXT NOT NULL DEFAULT ''"),
         ("exercises", "notes", "TEXT NOT NULL DEFAULT ''"),
         ("exercises", "is_superset", "INTEGER NOT NULL DEFAULT 0"),
     ):
-        existing = {row["name"] for row in db.execute(f"PRAGMA table_info({table})")}
-        if column not in existing:
-            db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
-    existing = {row["name"] for row in db.execute("PRAGMA table_info(profiles)")}
+        if DATABASE_URL:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {definition}")
+        else:
+            existing = {row["name"] for row in db.execute(f"PRAGMA table_info({table})")}
+            if column not in existing:
+                db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    existing_profiles = (
+        {row["name"] for row in db.execute("PRAGMA table_info(profiles)")}
+        if not DATABASE_URL else set()
+    )
     for column, definition in (
         ("name", "TEXT NOT NULL DEFAULT ''"),
         ("gender", "TEXT NOT NULL DEFAULT ''"),
@@ -221,7 +277,9 @@ def init_db():
         ("activity_level", "INTEGER"),
         ("target_weight_kg", "REAL"),
     ):
-        if column not in existing:
+        if DATABASE_URL:
+            db.execute(f"ALTER TABLE profiles ADD COLUMN IF NOT EXISTS {column} {definition}")
+        elif column not in existing_profiles:
             db.execute(f"ALTER TABLE profiles ADD COLUMN {column} {definition}")
     db.commit()
 
@@ -229,6 +287,13 @@ def init_db():
 @app.before_request
 def ensure_database():
     init_db()
+
+
+def insert_and_get_id(db, statement, params):
+    if DATABASE_URL:
+        row = db.execute(statement.rstrip().rstrip(";") + " RETURNING id", params).fetchone()
+        return row["id"]
+    return db.execute(statement, params).lastrowid
 
 
 def authenticated_user():
@@ -336,7 +401,7 @@ def create_custom_exercise():
             (user_id, category, name),
         )
         get_db().commit()
-    except sqlite3.IntegrityError:
+    except DB_INTEGRITY_ERRORS:
         return jsonify(error="Такое личное упражнение уже добавлено."), 409
     return jsonify(name=name, category=category, custom=True), 201
 
@@ -380,14 +445,14 @@ def add_weekly_plan_exercise():
     if weekday not in range(7) or len(name) > 100 or not name or not exercise_exists_for_user(user_id, category, name):
         return jsonify(error="Выбери упражнение из каталога."), 400
     try:
-        cursor = get_db().execute(
+        plan_id = insert_and_get_id(get_db(),
             "INSERT INTO planned_exercises(user_id, weekday, category, name) VALUES (?, ?, ?, ?)",
             (user_id, weekday, category, name),
         )
         get_db().commit()
-    except sqlite3.IntegrityError:
+    except DB_INTEGRITY_ERRORS:
         return jsonify(error="Это упражнение уже добавлено на этот день."), 409
-    return jsonify(id=cursor.lastrowid, weekday=weekday, category=category, name=name), 201
+    return jsonify(id=plan_id, weekday=weekday, category=category, name=name), 201
 
 
 @app.delete("/api/plan/<int:plan_id>")
@@ -593,13 +658,16 @@ def create_workout():
         return jsonify(error="Проверьте упражнения, повторы и вес."), 400
 
     db = get_db()
-    cursor = db.execute("INSERT INTO workouts(user_id, workout_date, workout_time) VALUES (?, ?, ?)", (user_id, workout_date, workout_time))
-    workout_id = cursor.lastrowid
+    workout_id = insert_and_get_id(
+        db,
+        "INSERT INTO workouts(user_id, workout_date, workout_time) VALUES (?, ?, ?)",
+        (user_id, workout_date, workout_time),
+    )
     for exercise_index, (name, sets, notes, is_superset) in enumerate(normalized):
-        exercise_id = db.execute(
+        exercise_id = insert_and_get_id(db,
             "INSERT INTO exercises(workout_id, name, position, notes, is_superset) VALUES (?, ?, ?, ?, ?)",
             (workout_id, name, exercise_index, notes, int(is_superset)),
-        ).lastrowid
+        )
         db.executemany(
             "INSERT INTO sets(exercise_id, reps, weight, position) VALUES (?, ?, ?, ?)",
             [(exercise_id, reps, weight, index) for index, (reps, weight) in enumerate(sets)],

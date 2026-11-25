@@ -72,38 +72,38 @@ EXERCISE_CATEGORIES = [
 # RepDB's free exercise illustrations are licensed for in-app use with attribution.
 # Keep custom exercises image-free unless the user adds their own image later.
 EXERCISE_IMAGE_SLUGS = {
-    "Жим лёжа": "barbell-bench-press",
-    "Жим гантелей лёжа": "dumbbell-bench-press",
-    "Жим на наклонной скамье": "incline-bench-press-barbell",
-    "Отжимания": "push-ups",
-    "Сведения в кроссовере": "cable-crossover",
-    "Подтягивания": "wide-grip-pull-ups",
+    "Жим лёжа": "bench-press",
+    "Жим гантелей лёжа": "db-bench-press",
+    "Жим на наклонной скамье": "incline-bench-press",
+    "Отжимания": "push-up",
+    "Сведения в кроссовере": "cable-fly",
+    "Подтягивания": "pull-up",
     "Тяга верхнего блока": "lat-pulldown",
     "Тяга штанги в наклоне": "barbell-row",
     "Горизонтальная тяга блока": "seated-cable-row",
-    "Становая тяга": "barbell-deadlift",
-    "Жим над головой": "barbell-overhead-press",
-    "Разведения гантелей в стороны": "dumbbell-lateral-raise",
-    "Разведения гантелей в наклоне": "bent-over-dumbbell-reverse-fly",
-    "Тяга к подбородку": "barbell-upright-row",
-    "Шраги": "barbell-shrug",
+    "Становая тяга": "deadlift",
+    "Жим над головой": "ohp",
+    "Разведения гантелей в стороны": "lateral-raise",
+    "Разведения гантелей в наклоне": "dumbbell-reverse-fly",
+    "Тяга к подбородку": "upright-row",
+    "Шраги": "shrug",
     "Сгибание рук со штангой": "barbell-curl",
     "Сгибание гантелей молотком": "hammer-curl",
-    "Сгибание гантелей сидя": "dumbbell-curl",
-    "Разгибание рук на блоке": "cable-triceps-pushdown",
-    "Французский жим": "lying-triceps-extension",
-    "Разгибание гантели над головой": "dumbbell-overhead-triceps-extension",
-    "Отжимания на брусьях": "parallel-bar-dips",
-    "Приседания со штангой": "barbell-squat",
+    "Сгибание гантелей сидя": "seated-dumbbell-curl",
+    "Разгибание рук на блоке": "tricep-pushdown",
+    "Французский жим": "lying-tricep-extension",
+    "Разгибание гантели над головой": "overhead-tricep-extension",
+    "Отжимания на брусьях": "parallel-bar-dip",
+    "Приседания со штангой": "squat",
     "Жим ногами": "leg-press",
-    "Выпады": "dumbbell-lunge",
+    "Выпады": "db-lunge",
     "Румынская тяга": "romanian-deadlift",
-    "Сгибание ног в тренажёре": "lying-leg-curl",
+    "Сгибание ног в тренажёре": "leg-curl",
     "Разгибание ног в тренажёре": "leg-extension",
-    "Ягодичный мостик": "barbell-hip-thrust",
+    "Ягодичный мостик": "hip-thrust",
     "Подъём на носки": "standing-calf-raise",
     "Планка": "plank",
-    "Скручивания": "crunches",
+    "Скручивания": "crunch",
     "Подъём ног": "lying-leg-raise",
 }
 REPDB_IMAGE_BASE = "https://raw.githubusercontent.com/RepDB/exercise-dataset/main/images/flat"
@@ -111,9 +111,14 @@ REPDB_IMAGE_BASE = "https://raw.githubusercontent.com/RepDB/exercise-dataset/mai
 
 def exercise_image_url(name):
     slug = EXERCISE_IMAGE_SLUGS.get(name)
+    if not slug:
+        return {"start": None, "peak": None}
+    if name == "Планка":
+        main = f"{REPDB_IMAGE_BASE}/{slug}-main.webp"
+        return {"start": main, "peak": None}
     return {
-        "start": f"{REPDB_IMAGE_BASE}/{slug}-start.webp" if slug else None,
-        "peak": f"{REPDB_IMAGE_BASE}/{slug}-peak.webp" if slug else None,
+        "start": f"{REPDB_IMAGE_BASE}/{slug}-start.webp",
+        "peak": f"{REPDB_IMAGE_BASE}/{slug}-peak.webp",
     }
 
 

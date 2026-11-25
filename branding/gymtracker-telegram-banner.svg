@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="680" viewBox="0 0 1200 680" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="100" y1="0" x2="1110" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#09050F"/>
+      <stop offset=".52" stop-color="#10091D"/>
+      <stop offset="1" stop-color="#08050D"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="matrix(0 310 -490 0 600 246)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6416A8" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#1B092B" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="violet" x1="360" y1="150" x2="835" y2="355" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EDB7FF"/>
+      <stop offset=".4" stop-color="#B34BFF"/>
+      <stop offset="1" stop-color="#6A16E8"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="390" y1="224" x2="805" y2="304" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7E30C8"/>
+      <stop offset=".24" stop-color="#E6B8FF"/>
+      <stop offset=".5" stop-color="#8029D5"/>
+      <stop offset=".78" stop-color="#E6B8FF"/>
+      <stop offset="1" stop-color="#6F21B7"/>
+    </linearGradient>
+    <linearGradient id="word" x1="594" y1="390" x2="880" y2="490" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DC9AFF"/>
+      <stop offset="1" stop-color="#8A32F3"/>
+    </linearGradient>
+    <filter id="soft-glow" x="274" y="77" width="652" height="370" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="16"/>
+    </filter>
+    <filter id="word-glow" x="284" y="370" width="632" height="128" color-interpolation-filters="sRGB" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="680" rx="34" fill="url(#bg)"/>
+  <rect width="1200" height="680" rx="34" fill="url(#glow)"/>
+
+  <!-- Quiet corner strokes keep the energy of the original without crowding the center. -->
+  <path d="M0 0h214L0 184V0Z" fill="#351052" fill-opacity=".25"/>
+  <path d="M0 0h92L0 79V0Z" fill="#8E25F3" fill-opacity=".75"/>
+  <path d="M1200 680H986l214-184v184Z" fill="#351052" fill-opacity=".25"/>
+  <path d="M1200 680h-92l92-79v79Z" fill="#8E25F3" fill-opacity=".72"/>
+  <path d="M45 548 175 435M1024 157l116-100" stroke="#6B24A3" stroke-opacity=".15" stroke-width="2"/>
+
+  <!-- A progress ring and a clean barbell form one compact fitness mark. -->
+  <circle cx="600" cy="237" r="151" stroke="#4A2369" stroke-opacity=".48" stroke-width="2"/>
+  <path d="M497 126a151 151 0 0 1 213-3" stroke="url(#violet)" stroke-width="11" stroke-linecap="round"/>
+  <path d="m711 91 26 34-43 3" fill="#C66BFF"/>
+  <circle cx="600" cy="237" r="181" fill="#A632FF" fill-opacity=".16" filter="url(#soft-glow)"/>
+
+  <g stroke="url(#metal)" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M418 252h364" stroke-width="23"/>
+    <path d="M418 252h364" stroke="#F0D9FF" stroke-opacity=".62" stroke-width="4"/>
+    <path d="M389 200v104M369 214v76M347 229v46" stroke-width="17"/>
+    <path d="M811 200v104M831 214v76M853 229v46" stroke-width="17"/>
+  </g>
+  <path d="M388 201v102M810 201v102" stroke="#F5E8FF" stroke-opacity=".7" stroke-width="3"/>
+  <circle cx="600" cy="252" r="4" fill="#F6E6FF"/>
+
+  <text x="600" y="431" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="800" font-style="italic" letter-spacing="-3">
+    <tspan fill="#F7F3FA">Gym</tspan><tspan fill="url(#word)">Tracker</tspan>
+  </text>
+  <text x="600" y="485" text-anchor="middle" fill="#D6C8E3" font-family="Arial, Helvetica, sans-serif" font-size="19" font-weight="600" letter-spacing="5">
+    TRAIN · PLAN · PROGRESS
+  </text>
+  <path d="M470 522h260" stroke="#8B37C6" stroke-opacity=".46" stroke-width="1"/>
+  <circle cx="458" cy="522" r="3" fill="#B359F3"/>
+  <circle cx="742" cy="522" r="3" fill="#B359F3"/>
+</svg>

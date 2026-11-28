@@ -119,4 +119,5 @@
 .macro-track{height:4px;background:#ffffff18}
 .macro-track i{background:linear-gradient(90deg,#ad7af0,#e0c4ff)}
 @media(max-width:360px){.macro-row{padding:8px 6px}.macro-label span:first-child{font-size:9px}.macro-label span:last-child{font-size:10px}.nutrition-calories{font-size:28px}}
+.start-planned-workout{width:100%;margin:0 0 8px;padding:10px 12px;border-radius:10px;font-size:12px}
 

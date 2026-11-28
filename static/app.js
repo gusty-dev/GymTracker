@@ -301,6 +301,14 @@ function renderWeeklyPlan() {
       list.append(row);
     }
     card.append(list);
+    if (items.length) {
+      const startButton = document.createElement("button");
+      startButton.type = "button";
+      startButton.className = "primary start-planned-workout";
+      startButton.textContent = "Записать тренировку";
+      startButton.addEventListener("click", () => openWorkoutForm({ weekday: index, planned: items }));
+      card.append(startButton);
+    }
     const addButton = document.createElement("button");
     addButton.type = "button";
     addButton.className = "add-day-exercise";
@@ -479,7 +487,7 @@ function renderWorkoutOptions(card, selectedName = "") {
   updateWorkoutAnatomy(card);
 }
 
-function addExercise() {
+function addExercise(categoryId = "", exerciseName = "") {
   const element = document.querySelector("#exercise-template").content.cloneNode(true);
   const card = element.querySelector(".exercise-card");
   const sets = card.querySelector(".sets");
@@ -505,21 +513,34 @@ function addExercise() {
       customForm.hidden = true;
     } catch (requestError) { error.textContent = requestError.message; }
   });
-  categorySelect.value = exerciseCategories[0]?.id || "";
-  renderWorkoutOptions(card);
+  categorySelect.value = exerciseCategories.some((item) => item.id === categoryId) ? categoryId : (exerciseCategories[0]?.id || "");
+  renderWorkoutOptions(card, exerciseName);
   addSet(sets);
   exerciseList.append(card);
 }
 
-document.querySelector("#open-form").addEventListener("click", async () => {
+function dateForWeekday(weekday) {
+  const date = new Date();
+  const today = (date.getDay() + 6) % 7;
+  date.setDate(date.getDate() + (weekday - today + 7) % 7);
+  const offset = date.getTimezoneOffset();
+  return new Date(date.getTime() - offset * 60_000).toISOString().slice(0, 10);
+}
+
+async function openWorkoutForm({ weekday = null, planned = [] } = {}) {
   exerciseList.replaceChildren();
   document.querySelector("#workout-error").textContent = "";
-  addExercise();
-  document.querySelector("#workout-date").value = new Date().toLocaleDateString("en-CA");
+  document.querySelector("#workout-date").value = weekday === null ? new Date().toLocaleDateString("en-CA") : dateForWeekday(weekday);
   if (!dialog.open) dialog.showModal();
-  try { await loadExerciseCatalog(); exerciseList.replaceChildren(); addExercise(); }
-  catch (error) { showError(error); }
-});
+  try {
+    await loadExerciseCatalog();
+    exerciseList.replaceChildren();
+    if (planned.length) planned.forEach((item) => addExercise(item.category, item.name));
+    else addExercise();
+  } catch (error) { showError(error); }
+}
+
+document.querySelector("#open-form").addEventListener("click", () => openWorkoutForm());
 document.querySelector("#close-form").addEventListener("click", () => dialog.close());
 document.querySelector("#add-exercise").addEventListener("click", () => addExercise());
 

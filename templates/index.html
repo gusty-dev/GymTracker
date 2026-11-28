@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#100d18">
   <title>GymTracker</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=8">
+  <link rel="stylesheet" href="/static/style.css?v=9">
 </head>
 <body>
   <main class="app">
@@ -14,7 +14,7 @@
     <p id="status" class="status" role="status"></p>
 
     <section class="tab-panel active" id="tab-exercises" data-panel="exercises">
-      <div class="page-heading"><div><p class="eyebrow">КАТАЛОГ ТРЕНИРОВОК</p><h2>Категории</h2></div><span class="page-note">Выберите группу мышц</span></div>
+      <div class="page-heading" id="catalog-heading"><div><p class="eyebrow">КАТАЛОГ ТРЕНИРОВОК</p><h2 id="catalog-title">Категории</h2></div><span class="page-note" id="catalog-note">Выберите группу мышц</span><button type="button" id="cancel-plan-picker" class="secondary" hidden>Отмена</button></div>
       <div id="category-grid" class="category-grid"></div>
       <section id="exercise-browser" class="exercise-browser" hidden>
         <button type="button" id="back-categories" class="text-button">← Все группы</button>
@@ -46,8 +46,9 @@
     </section>
 
     <section class="tab-panel" id="tab-workouts" data-panel="workouts" hidden>
-      <div class="page-heading"><div><p class="eyebrow">НЕДЕЛЬНЫЙ ПЛАН</p><h2>Тренировки</h2></div><span class="page-note">Добавляй упражнения заранее, а подходы заполняй после тренировки</span></div>
-      <div id="week-grid" class="week-grid"></div>
+      <div class="plan-topbar"><div class="plan-title"><button id="plan-add" type="button" class="plan-round-button" aria-label="Добавить упражнение">＋</button><h2>План на неделю</h2></div><button id="plan-edit" type="button" class="plan-edit-button">Изменить　•••</button></div>
+      <div id="plan-days" class="plan-days" role="tablist" aria-label="Дни недели"></div>
+      <section class="plan-day-content" aria-live="polite"><div class="plan-day-heading"><h3 id="plan-day-title"></h3><span id="plan-day-count" class="day-count">0</span></div><div id="plan-exercises" class="plan-exercises"></div><div id="plan-empty" class="plan-empty" hidden><span class="plan-empty-icon">▦＋</span><p>Нет упражнений на этот день.<br>Нажмите + чтобы добавить из каталога.</p><button id="plan-add-empty" type="button" class="primary">Добавить упражнение</button></div></section>
     </section>
 
     <section class="tab-panel" id="tab-history" data-panel="history" hidden>
@@ -175,6 +176,6 @@
       </svg>
     </div>
   </template>
-  <script src="/static/app.js?v=7"></script>
+  <script src="/static/app.js?v=8"></script>
 </body>
 </html>

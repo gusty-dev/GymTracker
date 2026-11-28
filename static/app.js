@@ -11,6 +11,9 @@ let weeklyPlan = [];
 let currentCategory = null;
 let selectedExercise = null;
 let planTargetDay = 0;
+let selectedPlanDay = (new Date().getDay() + 6) % 7;
+let planPickerActive = false;
+let planEditMode = false;
 let onboardingComplete = true;
 let profileEditMode = false;
 
@@ -115,7 +118,7 @@ function openCategory(categoryId) {
   if (!currentCategory) return;
   document.querySelector("#category-grid").hidden = true;
   document.querySelector("#exercise-browser").hidden = false;
-  document.querySelector("#browser-title").textContent = currentCategory.name;
+  document.querySelector("#browser-title").textContent = planPickerActive ? "Каталог" : currentCategory.name;
   document.querySelector("#selected-exercise").hidden = true;
   const list = document.querySelector("#exercise-list");
   list.replaceChildren();
@@ -123,6 +126,7 @@ function openCategory(categoryId) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "library-exercise";
+    if (planPickerActive) button.classList.add("plan-picker-exercise");
     const muscles = exercise.custom ? musclesForCategory(currentCategory.id) : (exercise.muscles || []);
     const targets = muscles.map((muscle) => targetLabels[muscle]).filter(Boolean);
     const visual = document.createElement("span");
@@ -135,26 +139,29 @@ function openCategory(categoryId) {
     copy.append(title);
     const muscleLabel = document.createElement("small");
     muscleLabel.className = "library-muscle-label";
-    muscleLabel.textContent = exercise.custom ? "Личное упражнение · мышцы группы" : "Задействованы мышцы";
+    muscleLabel.textContent = planPickerActive ? currentCategory.name : (exercise.custom ? "Личное упражнение · мышцы группы" : "Задействованы мышцы");
     copy.append(muscleLabel);
     const tags = document.createElement("span");
     tags.className = "library-muscle-tags";
-    for (const [index, target] of targets.entries()) {
+    for (const [index, target] of (planPickerActive ? [] : targets).entries()) {
       const tag = document.createElement("em");
       tag.textContent = target;
       if (index === 0) tag.classList.add("primary-muscle");
       tags.append(tag);
     }
-    if (!targets.length) {
+    if (!planPickerActive && !targets.length) {
       const tag = document.createElement("em");
       tag.textContent = currentCategory.name.toLowerCase();
       tags.append(tag);
     }
     copy.append(tags);
     const arrow = document.createElement("b");
-    arrow.textContent = "›";
+    const alreadyPlanned = weeklyPlan.some((item) => item.weekday === planTargetDay && item.category === currentCategory.id && item.name === exercise.name);
+    arrow.textContent = planPickerActive ? (alreadyPlanned ? "✓" : "＋") : "›";
+    if (planPickerActive) arrow.classList.add("plan-picker-plus");
+    if (alreadyPlanned) button.classList.add("added-to-plan");
     button.append(visual, copy, arrow);
-    button.addEventListener("click", () => selectLibraryExercise(exercise));
+    button.addEventListener("click", () => planPickerActive ? addExerciseToPlan(exercise) : selectLibraryExercise(exercise));
     list.append(button);
   }
 }
@@ -221,6 +228,7 @@ document.querySelector("#finish-exercise").addEventListener("click", async (even
 document.querySelector("#back-categories").addEventListener("click", () => {
   document.querySelector("#exercise-browser").hidden = true;
   document.querySelector("#category-grid").hidden = false;
+  document.querySelector("#catalog-title").textContent = planPickerActive ? "Каталог" : "Категории";
 });
 
 document.querySelector("#library-add-custom").addEventListener("click", () => {
@@ -283,47 +291,79 @@ async function loadWeeklyPlan() {
 }
 
 function renderWeeklyPlan() {
-  const grid = document.querySelector("#week-grid");
-  grid.replaceChildren();
+  const days = document.querySelector("#plan-days");
+  days.replaceChildren();
+  const shortDays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
   weekdays.forEach((day, index) => {
-    const card = document.createElement("article");
-    card.className = "day-card";
     const items = weeklyPlan.filter((item) => item.weekday === index);
-    card.innerHTML = `<div class="day-card-head"><div><span class="day-index">${String(index + 1).padStart(2, "0")}</span><h3>${day}</h3></div><span class="day-count">${items.length}</span></div>`;
-    const list = document.createElement("div");
-    list.className = "day-exercises";
-    if (!items.length) list.innerHTML = '<p class="day-empty">Пока свободно</p>';
-    for (const item of items) {
-      const row = document.createElement("div");
-      row.className = "planned-exercise";
-      row.innerHTML = `<span>${escapeHtml(item.name)}</span><button type="button" aria-label="Убрать ${escapeHtml(item.name)} из плана">×</button>`;
-      row.querySelector("button").addEventListener("click", () => deletePlanExercise(item.id));
-      list.append(row);
-    }
-    card.append(list);
-    if (items.length) {
-      const startButton = document.createElement("button");
-      startButton.type = "button";
-      startButton.className = "primary start-planned-workout";
-      startButton.textContent = "Записать тренировку";
-      startButton.addEventListener("click", () => openWorkoutForm({ weekday: index, planned: items }));
-      card.append(startButton);
-    }
-    const addButton = document.createElement("button");
-    addButton.type = "button";
-    addButton.className = "add-day-exercise";
-    addButton.textContent = "＋ Добавить упражнение";
-    addButton.addEventListener("click", () => {
-      planTargetDay = index;
-      document.querySelector("#exercise-browser").hidden = true;
-      document.querySelector("#category-grid").hidden = false;
-      switchTab("exercises");
-      showSuccess(`Выбери группу и упражнение для ${day.toLowerCase()}.`);
-    });
-    card.append(addButton);
-    grid.append(card);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `plan-day${selectedPlanDay === index ? " active" : ""}`;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(selectedPlanDay === index));
+    button.innerHTML = `<strong>${shortDays[index]}</strong><span>${items.length}</span>`;
+    button.addEventListener("click", () => { selectedPlanDay = index; renderWeeklyPlan(); });
+    days.append(button);
   });
+  const items = weeklyPlan.filter((item) => item.weekday === selectedPlanDay);
+  document.querySelector("#plan-day-title").textContent = weekdays[selectedPlanDay];
+  document.querySelector("#plan-day-count").textContent = items.length;
+  const list = document.querySelector("#plan-exercises");
+  list.replaceChildren();
+  document.querySelector("#plan-empty").hidden = items.length > 0;
+  list.hidden = items.length === 0;
+  for (const item of items) {
+    const row = document.createElement("div");
+    row.className = "planned-exercise";
+    row.innerHTML = `<span>${escapeHtml(item.name)}</span><button type="button" aria-label="Убрать ${escapeHtml(item.name)} из плана" ${planEditMode ? "" : "hidden"}>×</button>`;
+    row.querySelector("button").addEventListener("click", () => deletePlanExercise(item.id));
+    list.append(row);
+  }
+  if (items.length) {
+    const startButton = document.createElement("button");
+    startButton.type = "button";
+    startButton.className = "primary plan-start-workout";
+    startButton.textContent = "Начать тренировку";
+    startButton.addEventListener("click", () => openWorkoutForm({ weekday: selectedPlanDay, planned: items }));
+    list.append(startButton);
+  }
+  document.querySelector("#plan-edit").textContent = planEditMode ? "Готово" : "Изменить　•••";
 }
+
+function openPlanCatalog() {
+  planTargetDay = selectedPlanDay;
+  planPickerActive = true;
+  document.querySelector("#catalog-title").textContent = "Каталог";
+  document.querySelector("#catalog-note").textContent = `Добавь упражнения на ${weekdays[selectedPlanDay].toLowerCase()}`;
+  document.querySelector("#cancel-plan-picker").hidden = false;
+  document.querySelector("#exercise-browser").hidden = true;
+  document.querySelector("#category-grid").hidden = false;
+  switchTab("exercises");
+}
+
+async function addExerciseToPlan(exercise) {
+  if (weeklyPlan.some((item) => item.weekday === planTargetDay && item.category === currentCategory.id && item.name === exercise.name)) return;
+  try {
+    await api("/api/plan", { method: "POST", body: JSON.stringify({ weekday: planTargetDay, category: currentCategory.id, name: exercise.name }) });
+    await loadWeeklyPlan();
+    const button = [...document.querySelectorAll("#exercise-list .library-exercise")].find((item) => item.querySelector("strong")?.textContent === exercise.name);
+    if (button) { button.classList.add("added-to-plan"); button.querySelector("b").textContent = "✓"; }
+    showSuccess(`${exercise.name} добавлено на ${weekdays[planTargetDay].toLowerCase()}.`);
+  } catch (error) { showError(error); }
+}
+
+document.querySelector("#plan-add").addEventListener("click", openPlanCatalog);
+document.querySelector("#plan-add-empty").addEventListener("click", openPlanCatalog);
+document.querySelector("#plan-edit").addEventListener("click", () => { planEditMode = !planEditMode; renderWeeklyPlan(); });
+document.querySelector("#cancel-plan-picker").addEventListener("click", () => {
+  planPickerActive = false;
+  document.querySelector("#cancel-plan-picker").hidden = true;
+  document.querySelector("#catalog-title").textContent = "Категории";
+  document.querySelector("#catalog-note").textContent = "Выберите группу мышц";
+  document.querySelector("#exercise-browser").hidden = true;
+  document.querySelector("#category-grid").hidden = false;
+  switchTab("workouts");
+});
 
 async function deletePlanExercise(planId) {
   try { await api(`/api/plan/${planId}`, { method: "DELETE" }); await loadWeeklyPlan(); }
